@@ -44,16 +44,16 @@ public class LuaExampleEntity : UnitEntity
     {
         if (_luaComponents == null) return;
 
-        if (LuaManager.Instance == null)
+        if (ModManager.Instance == null)
         {
-            Debug.LogWarning($"[{name}] LuaManager 不可用，跳过 Lua 组件应用。");
+            Debug.LogWarning($"[{name}] ModManager 不可用，跳过 Lua 组件应用。");
             return;
         }
 
         foreach (var compName in _luaComponents)
         {
             if (!string.IsNullOrEmpty(compName))
-                LuaManager.Instance.API.ApplyComponent(compName, this, _customComponent);
+                ModManager.Instance.API.ApplyComponent(compName, this, _customComponent);
         }
     }
 }

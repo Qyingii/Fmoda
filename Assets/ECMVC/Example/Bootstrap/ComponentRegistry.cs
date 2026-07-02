@@ -6,13 +6,13 @@ using UnityEngine;
 // 此脚本仅作为在运行时通过名称动态添加组件的备选方案。
 //
 // 用法：在场景中任意 GameObject 上挂载此脚本即可。
-// 随后可在 Lua 或代码中通过 LuaManager.Instance.API.ApplyComponent("CHealth", entity, null) 调用。
+// 随后可在 Lua 或代码中通过 ModManager.Instance.API.ApplyComponent("CHealth", entity, null) 调用。
 [DefaultExecutionOrder(-100)]
 public class ComponentRegistry : MonoBehaviour
 {
     private void Start()
     {
-        var api = LuaManager.Instance?.API;
+        var api = ModManager.Instance?.API;
         if (api == null)
         {
             Debug.LogError("[ComponentRegistry] LuaManager.Instance 不可用。");

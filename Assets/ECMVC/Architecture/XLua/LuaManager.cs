@@ -1,9 +1,10 @@
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using UnityEngine;
 using UnityEngine.Networking;
 using XLua;
+using Cysharp.Threading.Tasks;
 
 /// <summary>
 /// 忽略 SSL 证书验证（用于自签名证书的开发环境）
@@ -34,6 +35,7 @@ namespace ECMVC.XLua
         private string persistentPath;
         private List<FileData> serverFiles;
         private List<FileData> localFiles;
+        private CancellationTokenSource _cts;
 
         // ────────── 公开属性 ──────────
 
@@ -63,10 +65,11 @@ namespace ECMVC.XLua
                 return;
             }
 
-            luaEnv          = new LuaEnv();
-            persistentPath  = Application.persistentDataPath;
-            serverFiles     = new List<FileData>();
-            localFiles      = new List<FileData>();
+            _cts            = new CancellationTokenSource();//取消令牌
+            luaEnv          = new LuaEnv();//Lua 环境
+            persistentPath  = Application.persistentDataPath;//持久化路径
+            serverFiles     = new List<FileData>();//服务器文件列表
+            localFiles      = new List<FileData>();//本地文件列表
 
             if (!Directory.Exists(persistentPath))
                 Directory.CreateDirectory(persistentPath);
@@ -77,15 +80,14 @@ namespace ECMVC.XLua
 
         void Start()
         {
-#if UNITY_EDITOR
-            Debug.Log("[XLuaManager] Editor 模式：请在测试窗口中手动触发更新检查");
-#else
-            StartCoroutine(CheckAndUpdate());
-#endif
+            CheckAndUpdateAsync().Forget();
         }
 
         void OnDestroy()
         {
+            _cts?.Cancel();
+            _cts?.Dispose();
+
             serverFiles?.Clear();
             localFiles?.Clear();
             luaEnv?.Dispose();
@@ -95,36 +97,27 @@ namespace ECMVC.XLua
         //  公开方法（供测试窗口 / 外部调用）
         // ================================================================
 
-        /// <summary> 检查并自动更新（协程）</summary>
-        public void StartCheckUpdate()             => StartCoroutine(CheckAndUpdate());
-
-        /// <summary> 完整更新流程（协程）</summary>
-        public void StartFullUpdate()              => StartCoroutine(UpdateResource());
-
-        /// <summary> 获取服务器文件列表（协程）</summary>
-        public void StartGetFileList(string path)  => StartCoroutine(GetServerFileList(path));
-
-        /// <summary> 扫描本地文件（同步）</summary>
+        public void StartCheckUpdate()             => CheckAndUpdateAsync().Forget();
+        public void StartFullUpdate()              => UpdateResourceAsync().Forget();
+        public void StartGetFileList(string path)  => GetServerFileListAsync(path).Forget();
         public void StartScanLocal(string childPath) => ScanLocalFiles(childPath);
-
-        /// <summary> 对比服务器/本地并下载（协程）</summary>
-        public void StartCompareDownload(string childPath) => StartCoroutine(CompareAndDownload(childPath));
+        public void StartCompareDownload(string childPath) => CompareAndDownloadAsync(childPath).Forget();
 
         // ================================================================
         //  完整更新流程
         // ================================================================
 
-        public IEnumerator UpdateResource()
+        public async UniTask UpdateResourceAsync()
         {
-            yield return null;
+            await UniTask.Yield();
             Debug.Log("=== XLua 资源更新开始 ===");
 
-            yield return StartCoroutine(UpdateChildPath("version"));
-            yield return StartCoroutine(UpdateChildPath("lua"));
+            await UpdateChildPathAsync("version");
+            await UpdateChildPathAsync("lua");
 
             SetupLuaEnvironment();
 
-            yield return StartCoroutine(UpdateAB());
+            await UpdateABAsync();
 
             Debug.Log("=== XLua 资源更新完成 ===");
         }
@@ -133,42 +126,43 @@ namespace ECMVC.XLua
         //  内部流程
         // ================================================================
 
-        /// <summary>
-        /// 检查版本更新，如果有新内容则自动执行完整更新
-        /// </summary>
-        IEnumerator CheckAndUpdate()
+        private async UniTask CheckAndUpdateAsync()
         {
-            Debug.Log("检查资源更新...");
-
-            yield return StartCoroutine(GetServerFileList("version"));
-            ScanLocalFiles("version");
-
-            bool needUpdate = false;
-            yield return StartCoroutine(HasPendingUpdate(v => needUpdate = v));
-
-            if (needUpdate)
+            try
             {
-                Debug.Log("检测到新版本，自动开始更新...");
-                yield return StartCoroutine(UpdateResource());
+                Debug.Log("检查资源更新...");
+
+                await GetServerFileListAsync("version");
+                ScanLocalFiles("version");
+
+                bool needUpdate = await HasPendingUpdateAsync();
+
+                if (needUpdate)
+                {
+                    Debug.Log("检测到新版本，自动开始更新...");
+                    await UpdateResourceAsync();
+                }
+                else
+                {
+                    Debug.Log("所有资源已是最新版本");
+                    SetupLuaEnvironment();
+                }
             }
-            else
+            catch (System.Exception e)
             {
-                Debug.Log("所有资源已是最新版本");
-                SetupLuaEnvironment();
+                Debug.LogError($"[XLuaManager] 检查更新失败: {e.Message}");
             }
         }
 
-        /// <summary> 更新指定子路径下的所有文件 </summary>
-        private IEnumerator UpdateChildPath(string childPath)
+        private async UniTask UpdateChildPathAsync(string childPath)
         {
             Debug.Log($">>> 更新 [{childPath}]");
-            yield return StartCoroutine(GetServerFileList(childPath));
+            await GetServerFileListAsync(childPath);
             ScanLocalFiles(childPath);
-            yield return StartCoroutine(CompareAndDownload(childPath));
+            await CompareAndDownloadAsync(childPath);
         }
 
-        /// <summary> 更新 AB 包资源 </summary>
-        private IEnumerator UpdateAB()
+        private async UniTask UpdateABAsync()
         {
             string abChildPath;
             switch (Application.platform)
@@ -179,43 +173,34 @@ namespace ECMVC.XLua
             }
 
             Debug.Log($">>> 更新 AB 包 [{abChildPath}]");
-            yield return StartCoroutine(GetServerFileList(abChildPath));
+            await GetServerFileListAsync(abChildPath);
             ScanLocalFiles(abChildPath);
-            yield return StartCoroutine(DownloadABFiles(abChildPath));
+            await DownloadABFilesAsync(abChildPath);
         }
 
-        /// <summary>
-        /// 仅对比版本，不下载（返回是否有更新）
-        /// </summary>
-        private IEnumerator HasPendingUpdate(System.Action<bool> callback)
+        private async UniTask<bool> HasPendingUpdateAsync()
         {
             // 服务器有但本地没有 / 不一致
             foreach (var sf in serverFiles)
             {
                 var lf = localFiles.Find(f => f.name == sf.name);
                 if (lf == null || lf.md5 != sf.md5 || lf.size != sf.size)
-                {
-                    callback(true);
-                    yield break;
-                }
+                    return true;
             }
             // 本地有但服务器已删除
             foreach (var lf in localFiles)
             {
                 if (!serverFiles.Exists(f => f.name == lf.name))
-                {
-                    callback(true);
-                    yield break;
-                }
+                    return true;
             }
-            callback(false);
+            return false;
         }
 
         // ================================================================
         //  服务器文件列表
         // ================================================================
 
-        IEnumerator GetServerFileList(string childPath)
+        private async UniTask GetServerFileListAsync(string childPath)
         {
             serverFiles.Clear();
 
@@ -224,7 +209,7 @@ namespace ECMVC.XLua
             using (UnityWebRequest req = UnityWebRequest.Get(apiUrl))
             {
                 req.certificateHandler = new CertificateHandlerIgnore();
-                yield return req.SendWebRequest();
+                await req.SendWebRequest().ToUniTask(cancellationToken: _cts.Token);
 
                 if (req.result == UnityWebRequest.Result.Success)
                 {
@@ -286,17 +271,16 @@ namespace ECMVC.XLua
         //  对比并下载（通用文件）
         // ================================================================
 
-        public IEnumerator CompareAndDownload(string childPath)
+        public async UniTask CompareAndDownloadAsync(string childPath)
         {
             if (serverFiles.Count == 0)
             {
                 Debug.Log($"[{childPath}] 服务器文件列表为空，跳过下载");
-                yield break;
+                return;
             }
 
             int updated = 0;
 
-            // 下载需要更新的文件
             foreach (var sf in serverFiles)
             {
                 var lf   = localFiles.Find(f => f.name == sf.name);
@@ -310,7 +294,7 @@ namespace ECMVC.XLua
                 if (need)
                 {
                     Debug.Log($"  下载: {sf.name}（{why}）");
-                    yield return StartCoroutine(DownloadFile(childPath, sf.name));
+                    await DownloadFileAsync(childPath, sf.name);
                     updated++;
                 }
                 else
@@ -319,7 +303,7 @@ namespace ECMVC.XLua
                 }
             }
 
-            // 删除本地多余文件（★★★ 修复：路径补上 childPath ★★★）
+            // 删除本地多余文件
             foreach (var lf in localFiles)
             {
                 if (!serverFiles.Exists(f => f.name == lf.name))
@@ -337,7 +321,7 @@ namespace ECMVC.XLua
         //  下载 AB 包（使用 LoadAB 的流式下载）
         // ================================================================
 
-        IEnumerator DownloadABFiles(string childPath)
+        private async UniTask DownloadABFilesAsync(string childPath)
         {
             string baseUrl = $"{url}/{childPath}".Replace("\\", "/");
             string saveDir = Path.Combine(persistentPath, childPath);
@@ -361,7 +345,7 @@ namespace ECMVC.XLua
                 {
                     Debug.Log($"  下载 AB: {sf.name}（{why}）");
                     var loader = new LoadAB(baseUrl);
-                    yield return loader.DownloadABAsync(sf.name);
+                    await loader.DownloadABAsync(sf.name);
                     updated++;
                 }
                 else
@@ -388,7 +372,7 @@ namespace ECMVC.XLua
         //  下载单个文件
         // ================================================================
 
-        IEnumerator DownloadFile(string childPath, string name)
+        private async UniTask DownloadFileAsync(string childPath, string name)
         {
             string remote = $"{url}/{childPath}/{name}".Replace("\\", "/");
             string local  = Path.Combine(persistentPath, childPath, name);
@@ -399,7 +383,7 @@ namespace ECMVC.XLua
             using (UnityWebRequest req = UnityWebRequest.Get(remote))
             {
                 req.certificateHandler = new CertificateHandlerIgnore();
-                yield return req.SendWebRequest();
+                await req.SendWebRequest().ToUniTask(cancellationToken: _cts.Token);
 
                 if (req.result == UnityWebRequest.Result.Success)
                 {
