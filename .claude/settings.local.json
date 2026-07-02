@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Recurse \"D:\\\\编程\\\\笔记\\\\代码\\\\ECS\")",
+      "Bash(Select-Object FullName, Length)",
+      "Bash(Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Recurse \"D:\\\\编程\\\\笔记\\\\代码\\\\ECS\\\\Architecture\" | Where-Object { $_.Extension -eq \".cs\" } | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem \"D:\\\\编程\\\\笔记\\\\代码\\\\ECS\\\\Example\" -Directory | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem \"D:\\\\编程\\\\笔记\\\\代码\\\\ECS\\\\Example\" | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem \"D:\\\\编程\\\\笔记\\\\代码\\\\ECS\" | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Recurse \"D:\\\\编程\\\\笔记\\\\代码\\\\ECS\\\\Example\" | Where-Object { $_.PSIsContainer } | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Recurse \"D:\\\\编程\\\\笔记\\\\代码\\\\ECS\\\\Example\" | ForEach-Object { $_.FullName } | Select-Object -First 20)",
+      "PowerShell(cmd /c \"dir /s /b D:\\\\编程\\\\笔记\\\\代码\\\\ECS\\\\Example\" 2>&1 | Select-Object -First 30)",
+      "PowerShell(cmd /c \"dir D:\\\\编程\\\\笔记\\\\代码\\\\ECS\\\\Example\")",
+      "PowerShell(cmd /c \"dir /s /b D:\\\\编程\\\\笔记\\\\代码\\\\ECS\\\\Example & dir /s /b D:\\\\编程\\\\笔记\\\\代码\\\\ECS\\\\README.md\")",
+      "PowerShell(findstr *)",
+      "PowerShell(cmd /c \"dir /s /b D:\\\\编程\\\\笔记\\\\代码\\\\ECS\" | Out-String)",
+      "PowerShell(Get-ChildItem -Path \"E:\\\\unity\\\\ECMVC\" -Force | Select-Object Name, @{Name='Type';Expression={if\\($_.PSIsContainer\\){'Dir'}else{'File'}}} | Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem -Path \"E:\\\\unity\\\\ECMVC\\\\Assets\\\\ECMVC\\\\Architecture\" -Recurse -File | Where-Object {$_.Extension -eq \".cs\"} | Select-Object FullName)",
+      "PowerShell(Get-ChildItem -Path \"E:\\\\unity\\\\ECMVC\\\\Assets\\\\ECMVC\\\\Example\" -Recurse -File | Where-Object {$_.Extension -eq \".cs\"} | Select-Object FullName)",
+      "PowerShell(Get-ChildItem *)"
+    ]
+  }
+}
