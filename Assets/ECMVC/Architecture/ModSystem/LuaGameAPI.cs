@@ -13,7 +13,7 @@ using XLua;
 //
 // C# 组件注册（游戏初始化时，在 Lua Mod 加载前调用）：
 //   api.RegisterCSharpComponent("CHealth", entity => {
-//       entity.AddComponentQDynamic(new CHealth(entity, new CHealth.Data()));
+//       entity.gameObject.AddComponent<CHealth>().Init(entity, new CHealth.Data());
 //   });
 //
 // Inspector 字段（_components）中同时填写 C# 组件名和 Lua 组件名，框架自动路由：
@@ -23,7 +23,7 @@ using XLua;
 public class LuaGameAPI
 {
     private readonly Dictionary<string, LuaTable> _templates = new Dictionary<string, LuaTable>();
-    private readonly Dictionary<string, Action<UnitEntity>> _csharpFactories = new Dictionary<string, Action<UnitEntity>>();
+    private readonly Dictionary<string, Action<GameEntity>> _csharpFactories = new Dictionary<string, Action<GameEntity>>();
     private readonly LuaEnv _luaEnv;
 
     public LuaGameAPI(LuaEnv luaEnv) => _luaEnv = luaEnv;
@@ -52,15 +52,15 @@ public class LuaGameAPI
     // ── C# 侧调用 ─────────────────────────────────────────────────────────────
 
     // 注册 C# 组件工厂（游戏初始化阶段调用，热重载后仍有效）
-    public void RegisterCSharpComponent(string name, Action<UnitEntity> factory)
+    public void RegisterCSharpComponent(string name, Action<GameEntity> factory)
     {
         _csharpFactories[name] = factory;
     }
 
     // 将命名组件应用到实体：
-    //   - C# 工厂组件：直接调用工厂创建并注册到 entity
+    //   - C# 工厂组件：直接调用工厂创建
     //   - Lua 模板组件：克隆 Table 后挂载到 customComponent
-    public void ApplyComponent(string name, UnitEntity entity, CustomComponent customComponent)
+    public void ApplyComponent(string name, GameEntity entity, CustomComponent customComponent)
     {
         if (_csharpFactories.TryGetValue(name, out var factory))
         {
@@ -95,5 +95,5 @@ public class LuaGameAPI
 
     public IReadOnlyDictionary<string, LuaTable> Templates => _templates;
 
-    public IReadOnlyDictionary<string, Action<UnitEntity>> CSharpFactories => _csharpFactories;
+    public IReadOnlyDictionary<string, Action<GameEntity>> CSharpFactories => _csharpFactories;
 }

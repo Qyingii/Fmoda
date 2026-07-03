@@ -19,7 +19,8 @@
       "PowerShell(Get-ChildItem -Path \"E:\\\\unity\\\\ECMVC\\\\Assets\\\\ECMVC\\\\Architecture\" -Recurse -File | Where-Object {$_.Extension -eq \".cs\"} | Select-Object FullName)",
       "PowerShell(Get-ChildItem -Path \"E:\\\\unity\\\\ECMVC\\\\Assets\\\\ECMVC\\\\Example\" -Recurse -File | Where-Object {$_.Extension -eq \".cs\"} | Select-Object FullName)",
       "PowerShell(Get-ChildItem *)",
-      "WebSearch"
+      "WebSearch",
+      "PowerShell(Remove-Item *)"
     ]
   }
 }
