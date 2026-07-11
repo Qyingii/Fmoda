@@ -20,7 +20,11 @@
       "PowerShell(Get-ChildItem -Path \"E:\\\\unity\\\\ECMVC\\\\Assets\\\\ECMVC\\\\Example\" -Recurse -File | Where-Object {$_.Extension -eq \".cs\"} | Select-Object FullName)",
       "PowerShell(Get-ChildItem *)",
       "WebSearch",
-      "PowerShell(Remove-Item *)"
+      "PowerShell(Remove-Item *)",
+      "Bash(Get-ChildItem -Recurse -Filter \"*.cs\" -Path \"Assets/ECMVC/Network\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Recurse -File -Name Assets/ECMVC/Network/)",
+      "Bash(Sort-Object)"
     ]
   }
 }

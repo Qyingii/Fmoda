@@ -17,7 +17,7 @@ namespace ECMVC.Net
     ///   场景中挂载此脚本，通过 Inspector 配置 IP / Port。
     ///   或代码中直接设置 NetworkManager.Instance.IP / Port。
     /// </summary>
-    public class NetworkManager : MonoBehaviour,INetwork
+    public class NetworkManager : MonoBehaviour, INetwork
     {
         public static NetworkManager Instance;
 
@@ -167,12 +167,11 @@ namespace ECMVC.Net
             return _server;
         }
 
-        /// <summary> 关闭服务器 </summary>
+        /// <summary> 关闭服务器（同时断开客户端连接）</summary>
         public void StopServer()
         {
             if (_server == null) return;
 
-            // 断开前清理事件，避免残留
             OnServerClientConnect    = null;
             OnServerClientDisconnect = null;
             OnServerClientData       = null;
@@ -180,6 +179,15 @@ namespace ECMVC.Net
             OnServerClientError      = null;
 
             _server.StopServer();
+
+            // 客户端连接随服务端关闭而失效 — 清理引用避免 Zombie 残留
+            if (_client != null)
+            {
+                _client.Disconnect();
+                _client   = null;
+                _isClient = false;
+            }
+
             _server   = null;
             _isServer = false;
             Debug.Log("[Network] 服务器已关闭");
@@ -194,21 +202,18 @@ namespace ECMVC.Net
                 return;
             }
 
-            var data = JsonConvert.SerializeObject(new TcpData()
-            {
-                dataType = "Data",
-                dataContent = message,
-            });
+            var data = new TcpData { dataType = "Data", dataContent = message };
+            var json = JsonConvert.SerializeObject(data);
 
             if (client == null)
                 foreach (var c in _server.Clients)
-                    _server.SendMessage(data, c);
+                    _server.SendMessage(json, c);
             else
-                _server.SendMessage(data, client);
+                _server.SendMessage(json, client);
         }
 
-        /// <summary> 向客户端发送事件，client 为 null 时广播给所有客户端 </summary>
-        public void SendEvent(string eventName, string message, System.Net.Sockets.TcpClient client = null)
+        /// <summary> 向客户端广播事件，client 为 null 时广播给所有客户端 </summary>
+        public void BroadcastEvent(string eventName, string message, System.Net.Sockets.TcpClient client = null)
         {
             if (_server == null)
             {
@@ -216,18 +221,14 @@ namespace ECMVC.Net
                 return;
             }
 
-            var data = JsonConvert.SerializeObject(new TcpData()
-            {
-                dataType    = "Event",
-                dataName    = eventName,
-                dataContent = message,
-            });
+            var data = new TcpData { dataType = "Event", dataName = eventName, dataContent = message };
+            var json = JsonConvert.SerializeObject(data);
 
             if (client == null)
                 foreach (var c in _server.Clients)
-                    _server.SendMessage(data, c);
+                    _server.SendMessage(json, c);
             else
-                _server.SendMessage(data, client);
+                _server.SendMessage(json, client);
         }
 
         // ══════════════════════════════════════════════════════════════════
@@ -239,8 +240,15 @@ namespace ECMVC.Net
         {
             if (_client != null)
             {
-                Debug.Log("[Network] 客户端已连接");
-                return _client;
+                if (_client.IsConnected)
+                {
+                    Debug.Log("[Network] 客户端已连接");
+                    return _client;
+                }
+
+                // 旧客户端引用存在但已断开（如 ServerShutdown 导致）→ 清理后重建
+                _client   = null;
+                _isClient = false;
             }
 
             _ip   = ip;
@@ -271,6 +279,14 @@ namespace ECMVC.Net
 
             _client.OnEvent += (eventName, data) =>
             {
+                // TCPClient 内部握手协议事件由 TCPClient 自行处理，不转发给外部订阅者
+                switch (eventName)
+                {
+                    case "SendToken":
+                    case "ConnectSussess":
+                    case "ServerShutdown":
+                        return;
+                }
                 Enqueue(() => OnClientEvent?.Invoke(eventName, data));
             };
 
@@ -295,43 +311,30 @@ namespace ECMVC.Net
             Debug.Log("[Network] 客户端已断开");
         }
 
-        /// <summary>
-        /// 向服务器发送消息
-        /// </summary>
+        /// <summary> 向服务器发送消息 </summary>
         public void SendData(string message)
         {
-            if (_client == null) 
+            if (_client == null)
             {
                 Debug.Log("[Network] 你不是客户端，不能发送客户端消息");
                 return;
             }
 
-            var data = JsonConvert.SerializeObject(new TcpData()
-            {
-                dataType = "Data",
-                dataContent = message,
-            });
-            _client.Send(data);
+            var data = new TcpData { dataType = "Data", dataContent = message };
+            _client.Send(JsonConvert.SerializeObject(data));
         }
 
-        /// <summary>
-        /// 向服务器发送事件
-        /// </summary>
+        /// <summary> 向服务器发送事件 </summary>
         public void SendEvent(string eventName, string message)
         {
-            if (_client == null) 
+            if (_client == null)
             {
                 Debug.Log("[Network] 你不是客户端，不能发送客户端事件");
                 return;
             }
 
-            var data = JsonConvert.SerializeObject(new TcpData()
-            {
-                dataType    = "Event",
-                dataName    = eventName,
-                dataContent = message,
-            });
-            _client.Send(data);
+            var data = new TcpData { dataType = "Event", dataName = eventName, dataContent = message };
+            _client.Send(JsonConvert.SerializeObject(data));
         }
 
         // ══════════════════════════════════════════════════════════════════

@@ -155,6 +155,11 @@ namespace ECMVC.Net
                     if (streamCount > 0)
                         OnDataReceived(streamCount);
                 }
+                catch (ThreadAbortException)
+                {
+                    // Editor 停止播放时线程被强制终止 — 正常行为，不记录
+                    break;
+                }
                 catch (Exception e)
                 {
                     if (!_disconnecting)

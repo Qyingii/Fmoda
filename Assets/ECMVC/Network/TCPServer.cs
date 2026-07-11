@@ -228,6 +228,9 @@ namespace ECMVC.Net
                         clientStates.Add(clientIdx, new ClientState(client, clientIdx, tempId));
                     }
 
+                    // 通知 NetworkManager 有新客户端连接
+                    OnClientOpen?.Invoke(client);
+
                     // 告知客户端可以发送令牌
                     var sendTokenMsg = JsonConvert.SerializeObject(new TcpData()
                     {
@@ -243,7 +246,9 @@ namespace ECMVC.Net
                 }
                 catch (Exception e)
                 {
-                    Debug.Log("客户端出错: " + e.Message);
+                    // 服务器关闭时 listener.Stop() 会中断 AcceptTcpClient() — 这是正常行为
+                    if (isRunning)
+                        Debug.LogError("接受客户端连接失败: " + e.Message);
                 }
             }
         }
@@ -272,6 +277,11 @@ namespace ECMVC.Net
                 }
                 catch (IOException) { break; }
                 catch (ObjectDisposedException) { break; }
+                catch (ThreadAbortException)
+                {
+                    // Editor 停止播放时线程被强制终止 — 正常行为
+                    break;
+                }
                 catch (Exception e)
                 {
                     OnClientError?.Invoke(state.Client, e);
