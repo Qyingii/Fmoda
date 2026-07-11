@@ -1,11 +1,9 @@
-using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.Networking;
-using XLua;
 using Cysharp.Threading.Tasks;
 
-namespace ECMVC.HotUpdate
+namespace ECMVC.Hotfix
 {
     public class LoadAB
     {
@@ -126,61 +124,5 @@ namespace ECMVC.HotUpdate
         }
 
 
-        // ================================================================
-        //  Lua 加载（静态工具）
-        // ================================================================
-
-        /// <summary> 初始化 Lua 环境：注册自定义加载器，加载 persistent/lua/ 下所有脚本 </summary>
-        /// <param name="luaEnv">XLua 虚拟机实例</param>
-        /// <param name="persistentPath">Application.persistentDataPath</param>
-        public static void SetupLuaEnvironment(LuaEnv luaEnv, string persistentPath)
-        {
-            // ── 自定义加载器：将 require('foo.bar') 映射到 persistent/lua/foo/bar.lua ──
-            luaEnv.AddLoader((ref string filepath) =>
-            {
-                string fileName = filepath.Replace('.', '/') + ".lua";
-                string localPath = Path.Combine(persistentPath, "lua", fileName);
-                return File.Exists(localPath) ? File.ReadAllBytes(localPath) : null;
-            });
-
-            // ── 扫描并加载所有 .lua 文件 ──
-            string luaDir = Path.Combine(persistentPath, "lua");
-            if (!Directory.Exists(luaDir))
-            {
-                Debug.LogWarning($"Lua 目录不存在，跳过加载: {luaDir}");
-                return;
-            }
-
-            var files = Directory.GetFiles(luaDir, "*.lua", SearchOption.AllDirectories);
-            if (files.Length == 0)
-            {
-                Debug.Log("Lua 目录为空，无文件加载");
-                return;
-            }
-
-            int success = 0;
-            int failed = 0;
-            foreach (string fullPath in files)
-            {
-                // 将绝对路径转为模块名，如 "lua/sub/foo.lua" → "sub.foo"
-                string relative = fullPath.Substring(luaDir.Length + 1)
-                                          .Replace('\\', '.')
-                                          .Replace('/', '.')
-                                          .Replace(".lua", "");
-                try
-                {
-                    luaEnv.DoString($"require('{relative}')");
-                    success++;
-                    Debug.Log($"[Lua] 加载: {relative}");
-                }
-                catch (System.Exception e)
-                {
-                    failed++;
-                    Debug.LogError($"[Lua] 加载失败 {relative}: {e.Message}");
-                }
-            }
-
-            Debug.Log($"[Lua] 环境初始化完成：成功 {success} 个，失败 {failed} 个");
-        }
     }
 }

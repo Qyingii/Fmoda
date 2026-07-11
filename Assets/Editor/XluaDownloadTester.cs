@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
-using ECMVC.HotUpdate;
+using ECMVC.Hotfix;
 
 /// <summary>
 /// XLua 打包下载功能测试窗口
@@ -175,7 +175,7 @@ public class XluaDownloadTester : EditorWindow
 
     private void DrawStatusBar()
     {
-        var mgr = HotUpdateManager.Instance;
+        var mgr = HotfixManager.Instance;
         bool hasManager = mgr != null;
 
         EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
@@ -255,9 +255,9 @@ public class XluaDownloadTester : EditorWindow
         }
     }
 
-    private void WithManager(System.Action<HotUpdateManager> action)
+    private void WithManager(System.Action<HotfixManager> action)
     {
-        var mgr = HotUpdateManager.Instance;
+        var mgr = HotfixManager.Instance;
         if (mgr == null)
         {
             Debug.LogError("XLuaManager 未在场景中！请先点击「创建 XLuaManager」");
@@ -269,7 +269,7 @@ public class XluaDownloadTester : EditorWindow
 
     private void PrintFileList()
     {
-        var mgr = HotUpdateManager.Instance;
+        var mgr = HotfixManager.Instance;
         if (mgr == null)
         {
             Debug.LogError("XLuaManager 未在场景中");
@@ -280,14 +280,14 @@ public class XluaDownloadTester : EditorWindow
 
     private void CreateManagerInScene()
     {
-        if (HotUpdateManager.Instance != null)
+        if (HotfixManager.Instance != null)
         {
             EditorUtility.DisplayDialog("提示", "场景中已有 XLuaManager", "确定");
             return;
         }
 
         var go = new GameObject("XLuaManager");
-        go.AddComponent<HotUpdateManager>();
+        go.AddComponent<HotfixManager>();
         Undo.RegisterCreatedObjectUndo(go, "Create XLuaManager");
 
         Debug.Log("✅ 已创建 XLuaManager，可在 Hierarchy 中查看");

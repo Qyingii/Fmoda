@@ -1,23 +1,21 @@
 using System.IO;
 using UnityEditor;
 using UnityEngine;
-namespace ECMVC.HotUpdate
+namespace ECMVC.Hotfix
 {
     // │╱ 序列化数据结构 ╱─────────────────────────────────────────────────────────
 
     [System.Serializable]
     public class ABBuildConfig
     {
-        public string version = "v1.0.0";
-        public string updateContent = "";
+        public string version            = "v1.0.0";
+        public string downloadUrl        = "";
+        public string updateContent      = "";
+        public string hotfixVersion      = "";
+        public string hotfixUpdateContent = "";
     }
 
-    [System.Serializable]
-    public class VersionData
-    {
-        public string version;
-        public string updateContent;
-    }
+    // VersionData 在 HotfixData.cs 中定义，此处共用
 
     // │╱ 主窗口 ╱─────────────────────────────────────────────────────────────────
 
@@ -29,8 +27,11 @@ namespace ECMVC.HotUpdate
         private bool buildIOS;
 
         // ── Version 配置 ──
-        private string versionNumber = "v1.0.0";
-        private string updateContent = "";
+        private string versionNumber       = "v1.0.0";
+        private string downloadUrl         = "";
+        private string updateContent       = "";
+        private string hotfixVersion       = "";
+        private string hotfixUpdateContent = "";
         private bool showVersion = true;
 
         // ── 持久化路径 ──
@@ -48,7 +49,7 @@ namespace ECMVC.HotUpdate
         private static void ShowWindow()
         {
             var w = GetWindow<CreateAB>("AB包构建工具");
-            w.minSize = new Vector2(420, 300);
+            w.minSize = new Vector2(480, 460);
             w.LoadFromDisk();
             w.Show();
         }
@@ -57,7 +58,7 @@ namespace ECMVC.HotUpdate
         //  窗口生命周期
         // ══════════════════════════════════════════════════════════════════════
 
-        private void OnEnable() => LoadFromDisk();
+        private void OnEnable()  => LoadFromDisk();
         private void OnDisable() => SaveToDisk();
 
         // ══════════════════════════════════════════════════════════════════════
@@ -93,7 +94,7 @@ namespace ECMVC.HotUpdate
             EditorGUI.indentLevel++;
             buildAndroid = EditorGUILayout.ToggleLeft("Android", buildAndroid);
             buildWindows = EditorGUILayout.ToggleLeft("Windows", buildWindows);
-            buildIOS = EditorGUILayout.ToggleLeft("iOS", buildIOS);
+            buildIOS     = EditorGUILayout.ToggleLeft("iOS",     buildIOS);
             EditorGUI.indentLevel--;
         }
 
@@ -105,14 +106,38 @@ namespace ECMVC.HotUpdate
             if (showVersion)
             {
                 EditorGUI.indentLevel++;
+
+                // 版本号
                 versionNumber = EditorGUILayout.TextField("版本号", versionNumber);
+
+                // 新版本下载地址
+                downloadUrl   = EditorGUILayout.TextField("新版本下载地址", downloadUrl);
+
+                // 更新内容
                 EditorGUILayout.LabelField("更新说明");
                 updateContent = EditorGUILayout.TextArea(updateContent, GUILayout.MinHeight(40));
+
+                EditorGUILayout.Space(4);
+
+                // ── 热更新子栏目 ──
+                EditorGUILayout.LabelField("🔥 热更新", EditorStyles.boldLabel);
+
+                hotfixVersion = EditorGUILayout.TextField("热更新版本号", hotfixVersion);
+
+                EditorGUILayout.LabelField("热更新说明");
+                hotfixUpdateContent = EditorGUILayout.TextArea(hotfixUpdateContent, GUILayout.MinHeight(40));
+
                 EditorGUI.indentLevel--;
 
                 EditorGUILayout.HelpBox(
                     "→ 生成 StreamingAssets/version/version.json\n" +
-                    "{ \"version\": \"...\", \"updateContent\": \"...\" }",
+                    "{\n" +
+                    "  \"version\": \"...\",\n" +
+                    "  \"downloadUrl\": \"...\",\n" +
+                    "  \"updateContent\": \"...\",\n" +
+                    "  \"hotfixVersion\": \"...\",\n" +
+                    "  \"hotfixUpdateContent\": \"...\"\n" +
+                    "}",
                     MessageType.Info);
             }
             EditorGUILayout.EndFoldoutHeaderGroup();
@@ -158,7 +183,7 @@ namespace ECMVC.HotUpdate
             int count = 0;
             if (buildAndroid) { BuildSingleAB("AssetBundles_Android", BuildTarget.Android); count++; }
             if (buildWindows) { BuildSingleAB("AssetBundles_Windows", BuildTarget.StandaloneWindows64); count++; }
-            if (buildIOS) { BuildSingleAB("AssetBundles_IOS", BuildTarget.iOS); count++; }
+            if (buildIOS)     { BuildSingleAB("AssetBundles_IOS",     BuildTarget.iOS); count++; }
 
             AssetDatabase.Refresh();
             Debug.Log($"🎉 打包完成：{count} 个平台 + version.json");
@@ -243,11 +268,14 @@ namespace ECMVC.HotUpdate
 
             var data = new VersionData
             {
-                version = cfg.version,
-                updateContent = cfg.updateContent,
+                version              = cfg.version,
+                downloadUrl          = cfg.downloadUrl,
+                updateContent        = cfg.updateContent,
+                hotfixVersion        = cfg.hotfixVersion,
+                hotfixUpdateContent  = cfg.hotfixUpdateContent,
             };
             File.WriteAllText(Path.Combine(dir, "version.json"), JsonUtility.ToJson(data, true));
-            Debug.Log($"✓ version.json（{cfg.version}）");
+            Debug.Log($"✓ version.json（version={cfg.version}, hotfix={cfg.hotfixVersion}）");
         }
 
         private static void EnsureLuaFolder()
@@ -267,16 +295,22 @@ namespace ECMVC.HotUpdate
         private void LoadFromDisk()
         {
             var cfg = ReadConfigFromDisk();
-            versionNumber = cfg.version;
-            updateContent = cfg.updateContent;
+            versionNumber       = cfg.version;
+            downloadUrl         = cfg.downloadUrl;
+            updateContent       = cfg.updateContent;
+            hotfixVersion       = cfg.hotfixVersion;
+            hotfixUpdateContent = cfg.hotfixUpdateContent;
         }
 
         private void SaveToDisk()
         {
             WriteConfigToDisk(new ABBuildConfig
             {
-                version = versionNumber,
-                updateContent = updateContent,
+                version            = versionNumber,
+                downloadUrl        = downloadUrl,
+                updateContent      = updateContent,
+                hotfixVersion      = hotfixVersion,
+                hotfixUpdateContent = hotfixUpdateContent,
             });
         }
 
