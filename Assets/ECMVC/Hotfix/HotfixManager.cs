@@ -7,9 +7,10 @@ using Cysharp.Threading.Tasks;
 namespace ECMVC.Hotfix
 {
     [Hotfix]
-    public class HotfixManager : MonoBehaviour, IHotfix
+    public class HotfixManager : IHotfix,IModule,IModuleAwake,IModuleDestroy
     {
-        public static HotfixManager Instance;
+        public Type InterfaceType => typeof(IHotfix);
+        public int Priority { get;} = 5;
 
         [SerializeField]
         private string url = @"https://frp-gap.com:64849";
@@ -74,37 +75,22 @@ namespace ECMVC.Hotfix
         string IHotfix.url                   { get => resourcesDownload?.ServerUrl ?? url; set => ServerUrl = value; }
         string IHotfix.debugUrl              { get => debugUrl; set => debugUrl = value; }
 
+
         // ══════════════════════════════════════════════════════════════
         //  Unity 生命周期
         // ══════════════════════════════════════════════════════════════
-
-        void Awake()
+        
+        public void OnAwake()
         {
-            if (Instance == null)
-            {
-                Instance = this;
-                DontDestroyOnLoad(gameObject);
-            }
-            else
-            {
-                Destroy(gameObject);
-                return;
-            }
-
             string persistentPath = Application.persistentDataPath;
             if (!Directory.Exists(persistentPath))
                 Directory.CreateDirectory(persistentPath);
 
             resourcesDownload = new ResourcesDownload(persistentPath, Application.isEditor, url, debugUrl);
-            luaLoad           = new LuaLoad(persistentPath);
+            luaLoad = new LuaLoad(persistentPath);
         }
 
-        void Start()
-        {
-            CheckAndUpdateAsync().Forget();
-        }
-
-        void OnDestroy()
+        public void OnDestroy()
         {
             resourcesDownload?.Cancel();
             luaLoad?.Dispose();

@@ -17,10 +17,11 @@ namespace ECMVC.Net
     ///   场景中挂载此脚本，通过 Inspector 配置 IP / Port。
     ///   或代码中直接设置 NetworkManager.Instance.IP / Port。
     /// </summary>
-    public class NetworkManager : MonoBehaviour, INetwork
+    public class NetworkManager : INetwork,IModule,IModuleUpdate,IModuleQuit
     {
-        public static NetworkManager Instance;
 
+        public Type InterfaceType => typeof(INetwork);
+        public int Priority { get;} = 5;
         // ── 主线程派发队列 ─────────────────────────────────────────────────
 
         private static readonly Queue<Action> _mainThreadActions = new Queue<Action>();
@@ -67,20 +68,8 @@ namespace ECMVC.Net
         //  Unity 生命周期
         // ══════════════════════════════════════════════════════════════════
 
-        private void Awake()
-        {
-            if (Instance == null)
-            {
-                Instance = this;
-                DontDestroyOnLoad(gameObject);
-            }
-            else
-            {
-                Destroy(gameObject);
-            }
-        }
 
-        private void Update()
+        public void OnUpdate()
         {
             lock (_mainThreadActions)
             {
@@ -89,7 +78,7 @@ namespace ECMVC.Net
             }
         }
 
-        private void OnApplicationQuit()
+        public void OnApplicationQuit()
         {
             StopServer();
             DisconnectClient();
