@@ -25,7 +25,8 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Get-ChildItem -Recurse -File -Name Assets/ECMVC/Network/)",
       "Bash(Sort-Object)",
-      "Bash(curl -k \"https://localhost:6567/lua/main.lua\")"
+      "Bash(curl -k \"https://localhost:6567/lua/main.lua\")",
+      "PowerShell(Rename-Item *)"
     ]
   }
 }

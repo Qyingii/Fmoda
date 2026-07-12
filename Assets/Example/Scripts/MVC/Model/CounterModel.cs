@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 // Model：拥有数据，通过 event 主动通知外部变化
 // 不引用任何 View / Controller / UnityEngine.UI

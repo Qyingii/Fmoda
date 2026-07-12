@@ -1,4 +1,4 @@
-// Controller：处理用户输入，调用 Model 方法
+﻿// Controller：处理用户输入，调用 Model 方法
 // 不引用 View，不操作任何 UI 元素（Text/Image 等）
 public class CounterController : ControllerBase
 {

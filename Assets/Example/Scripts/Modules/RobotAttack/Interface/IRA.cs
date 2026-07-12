@@ -1,6 +1,7 @@
+﻿using System;
 using UnityEngine;
 
-namespace ECMVC.RA
+namespace FModa.RA
 {
     /// <summary>
     /// Robot Attack 模块对外接口。
@@ -14,5 +15,10 @@ namespace ECMVC.RA
         /// </summary>
         /// <param name="attacker">发起攻击的单位 GameObject</param>
         void Attack(GameObject attacker);
+
+        /// <summary>
+        /// 流程结束时触发的事件，ExampleFlow 订阅此事件后切换流程。
+        /// </summary>
+        Action OnFlowEnd { get; set; } //流程结束时触发，ExampleFlow 订阅此事件后切换流程
     }
 }

@@ -1,32 +1,19 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-namespace ECMVC.RA
+namespace FModa.RA
 {
     /// <summary>
-    /// 机器人实体数据 —— 由 DataCenter 统一管理。
-    /// 字段全部 public 仅为序列化和编辑器可见，外部应通过 DataCenter API 读写。
+    /// 机器人实体数据。
+    /// ID 由 DataCenter 内部管理，不保存在此类中。
     /// </summary>
-    public class RAData
+    public class RAData:IData
     {
-        /// <summary> 唯一 ID，由 DataCenter.AddEntity 自动分配，分配后为只读 </summary>
-        public int id;
+        public GameObject robot;     // 关联的 GameObject 实例
+        public string name;          // 显示名称
+        public int maxHp;            // 最大血量
+        public int hp;               // 当前血量
+        public int attack;           // 攻击力
 
-        /// <summary> 关联的 GameObject 实例 </summary>
-        public GameObject robot;
-
-        /// <summary> 显示名称 </summary>
-        public string name;
-
-        /// <summary> 最大血量 </summary>
-        public int maxHp;
-
-        /// <summary> 当前血量 </summary>
-        public int hp;
-
-        /// <summary> 攻击力 </summary>
-        public int attack;
-
-        /// <summary> 是否存活 </summary>
         public bool IsAlive => hp > 0;
     }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 /// <summary>
@@ -9,8 +9,8 @@ using UnityEngine;
 ///   - 检测到按键后通过 onAttack 事件通知模块层（RAManager）
 ///   - 不包含任何攻击逻辑、伤害计算、数据修改
 ///
-/// 为什么输入检测放在这里而非模块的 IModuleUpdate：
-///   GF 的 IModuleUpdate 按逻辑帧触发（默认 0.1s 一次），而 Input.GetKeyDown()
+/// 为什么输入检测放在这里而非模块的 IModule.OnUpdate：
+///   GF 的 IModule.OnUpdate 按逻辑帧触发（默认 0.1s 一次），而 Input.GetKeyDown()
 ///   只在按键那帧返回 true。放在模块更新中会丢失大量输入。
 ///   所以"输入捕获"放在 MonoBehaviour.Update（每帧），"输入处理"放在模块层。
 /// </summary>
