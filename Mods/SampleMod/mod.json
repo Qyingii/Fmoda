@@ -1,0 +1,8 @@
+{
+  "id": "com.fmoda.sample",
+  "name": "SampleMod",
+  "version": "1.0.0",
+  "author": "FModa",
+  "description": "模组模块示例 —— 演示生命周期钩子和数据存储",
+  "entry": "main.lua"
+}
