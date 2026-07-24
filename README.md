@@ -1,9 +1,7 @@
 # FModa
 
 **F**low + **Mo**dule + **Da**ta — 一套面向 Unity 的轻量模块化框架。
-
-> 原名 **ECMVC**，重构后核心变为 Flow（流程）、Module（模块）、Data（数据），
-> 不再包含 Entity-Component 和 MVC 系统，故更名为 FModa。
+- 使用说明参考：`Assets\Example\README\README.md`
 
 ---
 
