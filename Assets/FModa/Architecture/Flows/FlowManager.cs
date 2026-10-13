@@ -1,4 +1,6 @@
 
+using UnityEngine;
+
 public class FlowManager
 {
     public IFlow CurrentFlow { get; private set; }//当前流程
@@ -11,6 +13,8 @@ public class FlowManager
         var flow = new T();
         flow.Enter();
         CurrentFlow = flow;//记录当前流程
+
+        Debug.Log("当前流程：" + CurrentFlow.GetType().Name);
     }
 
     /// <summary>
@@ -23,5 +27,8 @@ public class FlowManager
         currentFlow.Exit();
         var flow = new T();
         flow.Enter();
+        CurrentFlow = flow;//记录当前流程
+
+        Debug.Log("当前流程：" + CurrentFlow.GetType().Name);
     }
 }

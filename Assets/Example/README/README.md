@@ -103,3 +103,6 @@
 ## UI
 - 和渲染器大致类似，但是继承`UIWidget`
 - 具体可以参考`Assets\Example\Scripts\UI\UnitHpPanel.cs`
+
+## 内置工具
+- 内置工具都位于菜单栏的Tool处，目前有接口自动生成工具，将要生成接口的类托进入即可自动生成接口
