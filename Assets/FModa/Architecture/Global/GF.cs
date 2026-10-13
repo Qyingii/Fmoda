@@ -38,6 +38,9 @@ public class GF : MonoBehaviour
             Debug.LogWarning("没有找到 GameConfig，请在 Resources 下创建 GameConfig");
         }
         // DataManager 使用懒加载，首次访问时自动创建数据中心
+        DataManager.PreWarm();
+        
+        //初始化流程管理器
         flowManager = new FlowManager();
         
     }

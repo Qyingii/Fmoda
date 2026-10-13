@@ -29,6 +29,9 @@ public class FlowManager
         flow.Enter();
         CurrentFlow = flow;//记录当前流程
 
+        //清理数据
+        DataManager.ClearAll();
+
         Debug.Log("当前流程：" + CurrentFlow.GetType().Name);
     }
 }
