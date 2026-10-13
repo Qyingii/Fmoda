@@ -1,4 +1,4 @@
-﻿using FModa.RA;
+﻿using Conquer.Unit;
 
 
 /// <summary>
@@ -24,10 +24,9 @@ public static class DataManager
     private static GenericTable _generic;
     public static GenericTable Generic => _generic ??= new GenericTable();
 
-    // ── 战斗数据（热数据/typed 事件）──
-
-    private static CombatDataCenter _combat;
-    public static CombatDataCenter Combat => _combat ??= new CombatDataCenter();
+    //单位数据中心
+    private static UnitDataCenter _unit;
+    public static UnitDataCenter Unit => _unit ??= new UnitDataCenter();
 
     // ── 预加载（可选）──
 
@@ -38,7 +37,7 @@ public static class DataManager
     public static void PreWarm()
     {
         // 例：战斗系统在游戏一开始就会用到
-        _combat = new CombatDataCenter();
+        _unit = new UnitDataCenter();
 
         // 后续加：
         // _player = new PlayerDC();
@@ -48,7 +47,7 @@ public static class DataManager
     public static void ClearAll()
     {
         _generic?.ClearAll();
-        _combat?.Clear();
+        _unit?.Clear();
         // 子类各自实现 Clear
     }
 }

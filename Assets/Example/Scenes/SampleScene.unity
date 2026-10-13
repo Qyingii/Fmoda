@@ -267,28 +267,14 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 544775896}
-  - component: {fileID: 544775895}
+  - component: {fileID: 544775897}
   m_Layer: 0
-  m_Name: RAManager
+  m_Name: UnitManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &544775895
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 544775894}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 71a88093e270df64c929333f1c68ea22, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  robotPrefab1: {fileID: 6886168760480303766, guid: 0c8399329b6453a488d088bcf74455ac, type: 3}
-  robotPrefab2: {fileID: 694097076331046305, guid: 1fb1a5ad72f291e478cb25ef5831ccf4, type: 3}
 --- !u!4 &544775896
 Transform:
   m_ObjectHideFlags: 0
@@ -304,6 +290,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &544775897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 544775894}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1844e8aec370814e8ff6d84666494f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  unitPrefab: {fileID: 170104998562891196, guid: 241484eaea268e54aa6b49dcf781e6c9, type: 3}
 --- !u!1 &711977718
 GameObject:
   m_ObjectHideFlags: 0
@@ -339,8 +338,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 420}
-  m_SizeDelta: {x: 500, y: 100}
+  m_AnchoredPosition: {x: 179.15686, y: 291.64886}
+  m_SizeDelta: {x: 1259.4111, y: 356.7023}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &711977720
 MonoBehaviour:

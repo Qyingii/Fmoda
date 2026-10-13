@@ -1,4 +1,4 @@
-﻿using FModa.RA;
+﻿using Conquer.Unit;
 using TMPro;
 using UnityEngine;
 
@@ -14,35 +14,23 @@ public class UnitHpPanel : UIWidget
 {
     [SerializeField] private TextMeshProUGUI _text;
 
+    //单位模块
+    private IUnitManager unitManager;
     // ── UIWidget ──
 
     protected override void OnBind()
     {
-        var dc = DataManager.Combat;
-        dc.OnHpChanged += OnHpChanged;
-        dc.OnEntityRemoved += OnEntityRemoved;
+        //获取单位模块
+        unitManager = GF.GetModule<UnitManager>();
+        unitManager.OnHpChanged += RefreshAll;
     }
 
     protected override void OnUnbind()
     {
-        var dc = DataManager.Combat;
-        dc.OnHpChanged -= OnHpChanged;
-        dc.OnEntityRemoved -= OnEntityRemoved;
+        unitManager.OnHpChanged -= RefreshAll;
     }
 
     protected override void OnRefresh()
-    {
-        RefreshAll();
-    }
-
-    // ── 事件回调 ──
-
-    private void OnHpChanged(int entityId, int oldHp, int newHp)
-    {
-        RefreshAll();
-    }
-
-    private void OnEntityRemoved(int entityId)
     {
         RefreshAll();
     }
@@ -53,14 +41,15 @@ public class UnitHpPanel : UIWidget
     {
         if (_text == null) return;
 
-        var all = DataManager.Combat.GetAllEntities();
+        var all = unitManager.GetAllUnitData();
+        string pre="按下 Q 键，扣血，按下W 键，向前移动，按下空格键，结束本流程\n";
         string result = "";
         foreach (var kv in all)
         {
             var data = kv.Value;
-            result += $"{data.name}  HP {data.hp} / {data.maxHp}\n";
+            result += $"序列号：{kv.Key}  血量：{data.hp} / {data.maxHp}  速度：{data.moveSpeed}\n";
         }
 
-        _text.text = string.IsNullOrEmpty(result) ? "无存活单位" : result.TrimEnd('\n');
+        _text.text =pre + (string.IsNullOrEmpty(result) ? "无存活单位" : result.TrimEnd('\n'));
     }
 }

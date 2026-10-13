@@ -39,19 +39,21 @@ public class GF : MonoBehaviour
         }
         // DataManager 使用懒加载，首次访问时自动创建数据中心
         DataManager.PreWarm();
-        
+
         //初始化流程管理器
         flowManager = new FlowManager();
-        
-    }
 
-    void Start()
-    {
         //扫描场景，自动注册已挂载在 GameObject 上的 IModule 组件（如 RAManager）
         AutoRegisterSceneModules();
 
         //启动第一个流程
         flowManager.StartFlow<ExampleFlow>();
+
+    }
+
+    void Start()
+    {
+
     }
 
     private void Update()
@@ -135,7 +137,7 @@ public class GF : MonoBehaviour
     /// 获取已注册的模块，T 为实现了 IModule 的具体类型。
     /// 不存在时自动创建并注册。
     /// </summary>
-    public static T GetModule<T>(int priority = -1) where T : class
+    public static T GetModule<T>(int priority = -1) where T : class, IModule
     {
         // 1. 按反查表找到接口 key 再查（T 已注册过的具体类型）
         if (_concreteToInterface.TryGetValue(typeof(T), out var ifaceType))
@@ -233,6 +235,7 @@ public class GF : MonoBehaviour
             if (mb == null) continue;
             if (mb is IModule module && !_moduleMap.ContainsKey(module.InterfaceType))
             {
+                Debug.Log($"[GF] 自动注册场景模块: {module.InterfaceType.Name} (挂载在 {mb.gameObject.name})");
                 RegisterModuleByType(module.InterfaceType, mb, module.Priority);
             }
         }
