@@ -15,6 +15,7 @@ public class GF : MonoBehaviour
     //全局字段
     public static GameConfig config;//游戏配置
     public static FlowManager flowManager;//流程管理器
+    public static UIManager uiManager;//UI管理器
 
     #region 生命周期函数
 
@@ -45,6 +46,9 @@ public class GF : MonoBehaviour
 
         //扫描场景，自动注册已挂载在 GameObject 上的 IModule 组件（如 RAManager）
         AutoRegisterSceneModules();
+
+        //扫描场景，自动获取UIManager
+        uiManager = FindObjectOfType<UIManager>();
 
         //启动第一个流程
         flowManager.StartFlow<ExampleFlow>();

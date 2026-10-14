@@ -120,5 +120,15 @@ B--返回方法--> E
 - 放在UI上
 - 具体可以参考`Assets\Example\Scripts\UI\UnitHpPanel.cs`
 
+### 使用
+- 在和GF同一个的游戏对象上放置UIManager（同一个是为了防止切场景时丢失）
+- 你可以设置生成的UI生成根节点和清理UI的时机
+![alt text](image-2.png)
+
+- 将所有需要生成的UI预制体放在`Assets/Resources/UI`下
+![alt text](image-3.png)
+- 通过`GF.uiManager.OpenUI("BlankPanel")`即可动态生成UI
+- 你可以通过`UIWidget.OpenSubUI("RedPanel")`来动态生成子UI
+
 ## 内置工具
 - 内置工具都位于菜单栏的Tool处，目前有接口自动生成工具，将要生成接口的类托进入即可自动生成接口
