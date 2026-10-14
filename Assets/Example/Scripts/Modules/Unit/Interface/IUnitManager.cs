@@ -22,7 +22,7 @@ namespace Conquer.Unit
         /// </summary>
         /// <param name="unit"></param>
         /// <param name="id"></param>
-        public void Move(GameObject unit, int id);
+        public Vector3 Move(int id);
 
         /// <summary>
         /// 初始化

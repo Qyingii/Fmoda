@@ -57,9 +57,9 @@ namespace Conquer.Unit
 #region 单位操作
 
         //单位移动
-        public void Move(GameObject unit,int id)
+        public Vector3 Move(int id)
         {
-            unit.transform.Translate(new Vector2(0, 1) * Time.deltaTime*unitDataCenter.GetUnitData(id).moveSpeed);
+            return new Vector2(0, 1) * Time.deltaTime*unitDataCenter.GetUnitData(id).moveSpeed;
         }
 
         //单位扣血

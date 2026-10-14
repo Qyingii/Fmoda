@@ -22,7 +22,7 @@ public class Units : MonoBehaviour
     {
         if(Input.GetKey(KeyCode.W))
         {
-            unitManager.Move(gameObject,id);
+            transform.Translate(unitManager.Move(id));
         }
 
         if(Input.GetKeyDown(KeyCode.Space))
