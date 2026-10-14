@@ -42,13 +42,5 @@ public static class DataManager
         // 后续加：
         // _player = new PlayerDC();
     }
-
-    /// <summary> 清理所有数据（场景切换时调用）</summary>
-    public static void ClearAll()
-    {
-        _generic?.ClearAll();
-        _unit?.Clear();
-        // 子类各自实现 Clear
-    }
 }
 

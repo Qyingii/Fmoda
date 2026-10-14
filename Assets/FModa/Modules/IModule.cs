@@ -6,7 +6,7 @@ using System;
 /// </summary>
 public interface IModule
 {
-    /// <summary> 此模块对外暴露的接口类型（例如 typeof(IMyInterface)）</summary>
+    /// <summary> 此模块对外暴露的接口类型（例如 typeof(IMyInterface)）,如果你嫌接口麻烦，可以写自己</summary>
     Type InterfaceType { get; }
     /// <summary>
     /// 模块优先级（数字越小越先执行），默认 5。
@@ -24,12 +24,12 @@ public interface IModule
     void OnStart(){}
 
     /// <summary>
-    /// 每帧调用
+    /// 每tick调用
     /// </summary>
     void OnUpdate(){}
 
     /// <summary>
-    /// 每帧调用，在Update之后
+    /// 每tick调用，在Update之后
     /// </summary>
     void OnLateUpdate(){}
 

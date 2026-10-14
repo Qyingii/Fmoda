@@ -42,7 +42,7 @@ public class UnitHpPanel : UIWidget
         if (_text == null) return;
 
         var all = unitManager.GetAllUnitData();
-        string pre="按下 Q 键，扣血，按下W 键，向前移动，按下空格键，结束本流程\n";
+        string pre="按下 Q 键扣血，按下W 键向前移动，按下空格键结束本流程\n";
         string result = "";
         foreach (var kv in all)
         {

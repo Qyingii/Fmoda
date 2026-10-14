@@ -22,6 +22,15 @@ namespace Conquer.Unit
         // 单位预制体
         public GameObject unitPrefab;
 
+#region 生命周期函数
+        void OnDestroy()
+        {
+            OnFlowEnd = null;
+            OnHpChanged = null;
+            unitDataCenter.Clear(); //清除数据
+        }
+#endregion
+
 #region 流程
         //初始化
         public void Init()
