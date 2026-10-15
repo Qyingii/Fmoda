@@ -62,7 +62,7 @@ public abstract class UIBase : MonoBehaviour
 
     void Start()
     {
-        if (!independence)
+        if (!independence && !id.Contains("_"))
         {
             id = gameObject.name;
             id = GF.uiManager.Register(this, id);
