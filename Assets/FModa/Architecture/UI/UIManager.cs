@@ -7,7 +7,7 @@ public class UIManager : MonoBehaviour
     public readonly string uiRootPath = "UI/"; // UI 根目录
     private Dictionary<string, UIBase> uis; // UI 链表
     private Dictionary<string, UIBase> uiCloses; // 关闭的UI链表
-    private int uiIdCounter = 0; // UI ID 计数器
+    private long uiIdCounter = 0; // UI ID 计数器
     [SerializeField] private Transform uiRoot; // UI 根节点
     [SerializeField] private float cleanupTime = 300f; // 清理时间
     [SerializeField] private float timer = 0f; // 计时器
@@ -42,6 +42,21 @@ public class UIManager : MonoBehaviour
                 Debug.Log("清理关闭的UI中...");
             }
         }
+    }
+
+    /// <summary>
+    /// 注册UI
+    /// </summary>
+    /// <param name="ui"></param>
+    /// <param name="uiid"></param>
+    /// <returns></returns>
+    public string Register(UIBase ui,string uiid)
+    {
+        uiIdCounter++;
+        string uiId = uiid + "_" + uiIdCounter;
+        uis.Add(uiId, ui);
+
+        return uiId;
     }
 
     //拆分UIID
@@ -159,15 +174,20 @@ public class UIManager : MonoBehaviour
 
         if (!component)
         {
-            Debug.LogError("该UI没有UIWidget组件！,无法创建UI，路径："+uiRootPath + uiName);
+            Debug.LogError("该UI没有UIBase组件！,无法创建UI，路径："+uiRootPath + uiName);
             return null;
         }
 
-        // 入栈
-        uiIdCounter++;
-        var newId = uiName + "_" + uiIdCounter;
-        component.id = newId;
-        uis.Add(newId, component);
+        //检查是否独立化
+        if (!component.independence)
+        {
+            // 入栈
+            uiIdCounter++;
+            var newId = uiName + "_" + uiIdCounter;
+            component.id = newId;
+            uis.Add(newId, component);
+        }
+
         return component;
     }
 
@@ -177,11 +197,11 @@ public class UIManager : MonoBehaviour
     /// <param name="ui"></param>
     public void CloseUI(GameObject ui)
     {
-        var uiwidget = ui.TryGetComponent<UIBase>(out UIBase component);
+        var UIBase = ui.TryGetComponent<UIBase>(out UIBase component);
 
-        if (!uiwidget)
+        if (!UIBase)
         {
-            Debug.LogError("该UI没有UIWidget组件！");
+            Debug.LogError("该UI没有UIBase组件！");
         }
 
         // 获取UI ID

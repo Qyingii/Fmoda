@@ -45,18 +45,35 @@ public abstract class UIBase : MonoBehaviour
     private bool _isBound;
 
     /// <summary>
-    /// UI的唯一标识
+    /// UI的唯一标识,管理器自动分配，请勿手动修改
     /// </summary>
     public string id;
+
+    /// <summary>
+    /// 是否独立化,独立化的UI不通过UIManager管理
+    /// </summary>
+    [Tooltip("是否独立化,独立化的UI不通过UIManager管理")]
+    public bool independence=false;
 
     /// <summary>
     /// 子UI字典
     /// </summary>
     public Dictionary<string, UIBase> subUIs;
 
+    void Start()
+    {
+        if (!independence)
+        {
+            id = gameObject.name;
+            id = GF.uiManager.Register(this, id);
+        }
+    }
+
     void OnEnable()
     {
         if (_isBound) return;
+
+        //回到
         OnBind();
         _isBound = true;
         OnRefresh(); // 绑定后立即同步一次当前状态
