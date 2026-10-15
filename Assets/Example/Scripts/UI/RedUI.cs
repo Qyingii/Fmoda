@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class RedUI : UIWidget
+public class RedUI : UIBase
 {
     [SerializeField] private Button closeButton;
     protected override void OnBind()

@@ -1,20 +1,30 @@
-using System.Collections;
-using System.Collections.Generic;
 using Conquer.Unit;
 using UnityEngine;
 
 public class Units : MonoBehaviour
 {
-    [SerializeField]private int id;
+    [SerializeField]private long unitId;
+    public UnitData unitData;
 
     //单位模块
     private IUnitManager unitManager;
 
     void Start()
     {
+        //确保单位数据不为空
+        if(unitData == null)
+        {
+            unitData = new UnitData()
+            {
+                maxHp = 100,
+                hp = 100,
+                moveSpeed = 2,
+            };
+        }
 
         //获取单位模块
         unitManager = GF.GetModule<UnitManager>();
+        unitId = unitManager.Register(unitData); //注册单位
     }
 
 
@@ -22,7 +32,7 @@ public class Units : MonoBehaviour
     {
         if(Input.GetKey(KeyCode.W))
         {
-            transform.Translate(unitManager.Move(id));
+            transform.Translate(unitManager.Move(unitId));
         }
 
         if(Input.GetKeyDown(KeyCode.Space))
@@ -32,13 +42,12 @@ public class Units : MonoBehaviour
 
         if(Input.GetKeyDown(KeyCode.Q))
         {
-            unitManager.TakeDamage(id);
+            unitManager.TakeDamage(unitId);
         }
     }
 
-    //设置编号
-    public void SetId(int id)
+    void OnDestroy()
     {
-        this.id = id;
+        unitManager.UnRegister(unitId);
     }
 }

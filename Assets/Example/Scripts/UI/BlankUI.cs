@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-public class BlankUI : UIWidget
+public class BlankUI : UIBase
 {
     [SerializeField] private Button closeButton;
     [SerializeField] private Button openSubButton;

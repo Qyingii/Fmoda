@@ -5,8 +5,8 @@ using UnityEngine;
 public class UIManager : MonoBehaviour
 {
     public readonly string uiRootPath = "UI/"; // UI 根目录
-    private Dictionary<string, UIWidget> uis; // UI 链表
-    private Dictionary<string, UIWidget> uiCloses; // 关闭的UI链表
+    private Dictionary<string, UIBase> uis; // UI 链表
+    private Dictionary<string, UIBase> uiCloses; // 关闭的UI链表
     private int uiIdCounter = 0; // UI ID 计数器
     [SerializeField] private Transform uiRoot; // UI 根节点
     [SerializeField] private float cleanupTime = 300f; // 清理时间
@@ -22,8 +22,8 @@ public class UIManager : MonoBehaviour
             uiRoot = transform;
         }
 
-        uis = new Dictionary<string, UIWidget>();
-        uiCloses = new Dictionary<string, UIWidget>();
+        uis = new Dictionary<string, UIBase>();
+        uiCloses = new Dictionary<string, UIBase>();
     }
 
     void Update()
@@ -87,13 +87,13 @@ public class UIManager : MonoBehaviour
     /// </summary>
     /// <param name="uiName"></param>
     /// <returns></returns>
-    public UIWidget OpenUI(string uiName,Vector3 pos=default,Quaternion quaternion=default)
+    public UIBase OpenUI(string uiName,Vector3 pos=default,Quaternion quaternion=default)
     {
         //先在关闭的UI中查找
         if(uiCloses.Count > 0)
         {
             string key="";
-            UIWidget value = null;
+            UIBase value = null;
             foreach (var ui in uiCloses)
             {
                 if (SplitUIID(ui.Key) == uiName)
@@ -134,7 +134,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     /// <param name="uiName"></param>
     /// <returns></returns>
-    private UIWidget CreateUI(string uiName,Vector3 pos=default,Quaternion quaternion=default)
+    private UIBase CreateUI(string uiName,Vector3 pos=default,Quaternion quaternion=default)
     {
         //加载UI预制体
         GameObject prefab = Resources.Load<GameObject>(uiRootPath + uiName);
@@ -155,7 +155,7 @@ public class UIManager : MonoBehaviour
         {
             uiInstance.transform.rotation = quaternion;
         }
-        uiInstance.TryGetComponent<UIWidget>(out UIWidget component);
+        uiInstance.TryGetComponent<UIBase>(out UIBase component);
 
         if (!component)
         {
@@ -177,7 +177,7 @@ public class UIManager : MonoBehaviour
     /// <param name="ui"></param>
     public void CloseUI(GameObject ui)
     {
-        var uiwidget = ui.TryGetComponent<UIWidget>(out UIWidget component);
+        var uiwidget = ui.TryGetComponent<UIBase>(out UIBase component);
 
         if (!uiwidget)
         {
@@ -201,7 +201,7 @@ public class UIManager : MonoBehaviour
         // 出栈
         if (uis.ContainsKey(id))
         {
-            UIWidget ui = uis[id];
+            UIBase ui = uis[id];
             uis.Remove(id);
 
             //销毁子UI

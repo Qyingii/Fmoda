@@ -2,26 +2,33 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// UI 组件基类 —— 统一管理 DataCenter 事件的订阅/取消订阅。
+/// UI 组件基类 —— 统一管理事件订阅的绑定/解绑时机。
 ///
 /// 为什么需要这个类？
 ///   UI 不需要模块系统（模块有优先级、接口注册、逻辑帧 Tick），
-///   UI 只需要"在显示时订阅数据 → 数据变了刷新 → 销毁时取消订阅"。
-///   UIWidget 就是做这个的最小抽象。
+///   UI 只需要"在显示时订阅 → 数据变了刷新 → 销毁时取消订阅"。
+///   UIBase 就是做这个的最小抽象。
+///
+/// 注意：订阅的一律是**模块**暴露的事件，不要直接订阅 DataCenter。
+///   README 的约定是「渲染器、UI 都必须通过模块来获取数据」，
+///   直接订阅数据中心会绕过模块，视图与数据的耦合就没有中间层兜底了。
 ///
 /// 使用方式：
 /// <code>
-/// public class HpBar : UIWidget
+/// public class HpBar : UIBase
 /// {
 ///     [SerializeField] private TextMeshProUGUI _text;
 ///
+///     private ICombatManager _combat;
+///
 ///     protected override void OnBind()
 ///     {
-///         DataManager.Combat.OnHpChanged += OnHpChanged;
+///         _combat = GF.GetModule&lt;CombatManager&gt;();
+///         _combat.OnHpChanged += OnHpChanged;
 ///     }
 ///     protected override void OnUnbind()
 ///     {
-///         DataManager.Combat.OnHpChanged -= OnHpChanged;
+///         _combat.OnHpChanged -= OnHpChanged;
 ///     }
 ///     private void OnHpChanged(int id, int old, int newHp)
 ///     {
@@ -30,7 +37,7 @@ using UnityEngine;
 /// }
 /// </code>
 /// </summary>
-public abstract class UIWidget : MonoBehaviour
+public abstract class UIBase : MonoBehaviour
 {
     /// <summary>
     /// 绑定状态
@@ -45,7 +52,7 @@ public abstract class UIWidget : MonoBehaviour
     /// <summary>
     /// 子UI字典
     /// </summary>
-    public Dictionary<string, UIWidget> subUIs;
+    public Dictionary<string, UIBase> subUIs;
 
     void OnEnable()
     {
@@ -66,7 +73,7 @@ public abstract class UIWidget : MonoBehaviour
         if (_isBound) OnUnbind();
     }
 
-    /// <summary> 在此订阅 DataCenter 的事件 </summary>
+    /// <summary> 在此订阅模块暴露的事件 </summary>
     protected abstract void OnBind();
 
     /// <summary> 在此取消所有订阅 </summary>
@@ -74,7 +81,7 @@ public abstract class UIWidget : MonoBehaviour
 
     /// <summary>
     /// 初始状态同步（可选重写）。
-    /// 在 OnBind 完成后自动调用，用于把数据中心的当前值刷新到 UI 上。
+    /// 在 OnBind 完成后自动调用，用于把模块里的当前值刷新到 UI 上。
     /// </summary>
     protected virtual void OnRefresh() { }
 
@@ -99,7 +106,7 @@ public abstract class UIWidget : MonoBehaviour
     {
         if(subUIs==null)
         {
-            subUIs = new Dictionary<string, UIWidget>();
+            subUIs = new Dictionary<string, UIBase>();
             
             //订阅UI清理事件
             GF.uiManager.OnUIClear += ClearSubUI;

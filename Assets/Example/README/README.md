@@ -11,10 +11,6 @@ C[UI]--调用--> B
 B--调用--> D[数据中心（DataCenter）]
 E[流程（Flow）]--启动和销毁--> B
 F[GF]--启动--> E
-D--返回数据--> B
-B--返回数据--> C
-B--返回数据--> A
-B--返回方法--> E
 ```
 ## 全局（Global）
 全局脚本有GF、GameConfig和DataCenter

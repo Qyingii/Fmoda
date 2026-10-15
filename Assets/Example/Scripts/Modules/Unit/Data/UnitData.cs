@@ -7,6 +7,7 @@ namespace Conquer.Unit
     /// <summary>
     /// 单位数据
     /// </summary>
+    [System.Serializable]
     public class UnitData : IData
     {
         //最大生命值

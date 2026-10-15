@@ -22,7 +22,7 @@ namespace Conquer.Unit
         /// </summary>
         /// <param name="unit"></param>
         /// <param name="id"></param>
-        public Vector3 Move(int id);
+        public Vector3 Move(long id);
 
         /// <summary>
         /// 初始化
@@ -33,7 +33,7 @@ namespace Conquer.Unit
         /// 单位扣血
         /// </summary>
         /// <param name="id"></param>
-        public void TakeDamage(int id);
+        public void TakeDamage(long id);
 
         /// <summary>
         /// 结束流程
@@ -44,7 +44,20 @@ namespace Conquer.Unit
         /// 获取全部单位数据
         /// </summary>
         /// <returns></returns>
-        public Dictionary<int, UnitData> GetAllUnitData();
+        public Dictionary<long, UnitData> GetAllUnitData();
+
+        /// <summary>
+        /// 注册数据
+        /// </summary>
+        /// <param name="data"></param>
+        /// <returns></returns>
+        public long Register(UnitData data);
+
+        /// <summary>
+        /// 注销数据
+        /// </summary>
+        /// <param name="id"></param>
+        public void UnRegister(long id);
 
     }
 }

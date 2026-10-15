@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using FModa.Data;
 using UnityEngine;
 
 namespace Conquer.Unit
@@ -22,12 +23,29 @@ namespace Conquer.Unit
         // 单位预制体
         public GameObject unitPrefab;
 
+        /// <summary>
+        /// 注册数据
+        /// </summary>
+        /// <returns></returns>
+        public long Register(UnitData data)
+        {
+            return unitDataCenter.AddData(data);
+        }
+
+        /// <summary>
+        /// 注销数据
+        /// </summary>
+        /// <param name="id"></param>
+        public void UnRegister(long id)
+        {
+            unitDataCenter.RemoveData(id);
+        }
+
 #region 生命周期函数
         void OnDestroy()
         {
             OnFlowEnd = null;
             OnHpChanged = null;
-            unitDataCenter.Clear(); //清除数据
         }
 #endregion
 
@@ -37,35 +55,34 @@ namespace Conquer.Unit
         {
             // 1. 派生单位
             var go1 = Instantiate(unitPrefab, new Vector3(-1, -1, 0), Quaternion.identity);
-            var go2 = Instantiate(unitPrefab, new Vector3(1, -1, 0), Quaternion.identity);
 
             // 2. 获取 Units
             var unit1 = go1.GetComponent<Units>();
-            var unit2 = go2.GetComponent<Units>();
 
             // 3. 写入 UnitDataCenter
-            unit1.SetId(unitDataCenter.AddUnitData(new UnitData { maxHp = 100, hp = 100, moveSpeed = 3 }));
-            unit2.SetId(unitDataCenter.AddUnitData(new UnitData { maxHp = 90, hp = 90, moveSpeed = 2 }));
+            unit1.unitData = new UnitData { maxHp = 90, hp = 90, moveSpeed = 2 };
         }
 
         //结束流程
         public void EndFlow()
         {
+            //转流程时清除数据，让用户知道删除数据时不会有反向通知
+            unitDataCenter.Clear(); 
             OnFlowEnd?.Invoke();
         }
 #endregion
 #region 单位操作
 
         //单位移动
-        public Vector3 Move(int id)
+        public Vector3 Move(long id)
         {
-            return new Vector2(0, 1) * Time.deltaTime*unitDataCenter.GetUnitData(id).moveSpeed;
+            return new Vector2(0, 1) * Time.deltaTime*unitDataCenter.GetData(id).moveSpeed;
         }
 
         //单位扣血
-        public void TakeDamage(int id)
+        public void TakeDamage(long id)
         {
-            unitDataCenter.UpdateUnitData(id, hp: unitDataCenter.GetUnitData(id).hp - 10);
+            unitDataCenter.UpdateUnitData(id, hp: unitDataCenter.GetData(id).hp - 10);
             OnHpChanged?.Invoke();
         }
 #endregion
@@ -73,12 +90,12 @@ namespace Conquer.Unit
 #region UI显示
 
         //获取全部单位数据
-        public Dictionary<int, UnitData> GetAllUnitData()
+        public Dictionary<long, UnitData> GetAllUnitData()
         {
-            return unitDataCenter.GetAllUnitData();
+            return unitDataCenter.GetAllData();
         }
 
-#endregion
+        #endregion
     }
 }
 

@@ -10,7 +10,7 @@ using UnityEngine;
 ///   2. OnUnbind 中取消订阅
 ///   3. OnRefresh 中做初始同步
 /// </summary>
-public class UnitHpPanel : UIWidget
+public class UnitHpPanel : UIBase
 {
     [SerializeField] private TextMeshProUGUI _text;
 
