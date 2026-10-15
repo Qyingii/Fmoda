@@ -16,8 +16,9 @@ namespace FModa.Modding
     /// 使用方式：
     /// <code>
     /// // 首次访问自动创建（通过 GF 的模块自动创建机制）
+    /// // 注意只能用具体类型取：GetModule&lt;T&gt; 的约束是 where T : class, IModule，
+    /// // 而 IModding 不继承 IModule，写 GF.GetModule&lt;IModding&gt;() 编译不过
     /// var modding = GF.GetModule&lt;ModdingManager&gt;();
-    /// // 或通过接口：GF.GetModule&lt;IModding&gt;();
     ///
     /// // 手动重新加载所有模组
     /// modding.ReloadAll();

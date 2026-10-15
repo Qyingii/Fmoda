@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FModa.Data;
+using FModa.Pool;
 using UnityEngine;
 
 /// <summary>
@@ -17,6 +18,7 @@ public class GF : MonoBehaviour
     public static GameConfig config;//游戏配置
     public static FlowManager flowManager;//流程管理器
     public static UIManager uiManager;//UI管理器
+    public static PoolManager poolManager;//对象池管理器
 
     #region 生命周期函数
 
@@ -50,6 +52,9 @@ public class GF : MonoBehaviour
 
         //扫描场景，自动获取UIManager
         uiManager = FindObjectOfType<UIManager>();
+
+        //创建对象池
+        poolManager = new PoolManager();
 
         //启动第一个流程
         flowManager.StartFlow<ExampleFlow>();
@@ -223,6 +228,74 @@ public class GF : MonoBehaviour
         _concreteToInterface.Clear();
         _cacheDirty = true;
         Debug.Log("[GF] 已清除所有模块");
+    }
+
+    /// <summary>
+    /// 派生实例
+    /// </summary>
+    /// <param name="prefab"></param>
+    /// <param name="position"></param>
+    /// <param name="rotation"></param>
+    /// <param name="parent"></param>
+    /// <returns></returns>
+    public static GameObject Spawn(GameObject prefab, Vector3 position= default, Quaternion rotation= default, Transform parent= null)
+    {
+        GameObject go;
+        //检查是否是对象池对象
+        prefab.TryGetComponent<Poolable>(out var poolable);
+
+        //不是对象池对象，直接实例化
+        if (poolable == null)
+        {
+            go=Instantiate(prefab);
+
+        }
+        else
+        {
+            //从对象池获取
+            if(poolable.source == null)
+            {
+                poolable.source = prefab;
+            }
+            
+            go = poolManager.GetObject(poolable.source);
+        }
+
+        if (position != default)
+        {
+            go.transform.position = position;
+        }
+        if (rotation != default)
+        {
+            go.transform.rotation = rotation;
+        }
+        if (parent != null)
+        {
+            go.transform.SetParent(parent);
+        }
+
+        return go;
+    }
+
+    /// <summary>
+    /// 销毁实例
+    /// </summary>
+    /// <param name="go"></param>
+    public static void Despawn(GameObject go)
+    {
+        //检查是否是对象池对象
+        go.TryGetComponent<Poolable>(out var poolable);
+
+        //不是对象池对象，直接销毁
+        if (poolable == null)
+        {
+            Destroy(go);
+        }
+        else
+        {
+            //回收到对象池
+            poolManager.ReleaseObject(poolable.source,go);
+        }
     }
 
     // ── 内部：场景扫描 ──

@@ -119,7 +119,7 @@ public abstract class UIBase : MonoBehaviour
     /// 打开子UI
     /// </summary>
     /// <param name="subUIName"></param>
-    public void OpenSubUI(string subUIName,Vector3 pos=default,Quaternion quaternion=default)
+    public void OpenSubUI(string subUIName,Vector3 pos=default,Quaternion quaternion=default,Transform parent = null)
     {
         if(subUIs==null)
         {
@@ -129,7 +129,7 @@ public abstract class UIBase : MonoBehaviour
             GF.uiManager.OnUIClear += ClearSubUI;
         }
 
-        var subUI=GF.uiManager.OpenUI(subUIName,pos,quaternion);
+        var subUI=GF.uiManager.OpenUI(subUIName,pos,quaternion,parent);
 
         //设置父级关系
         subUI.transform.SetParent(transform);

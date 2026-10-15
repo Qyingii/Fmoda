@@ -102,7 +102,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     /// <param name="uiName"></param>
     /// <returns></returns>
-    public UIBase OpenUI(string uiName,Vector3 pos=default,Quaternion quaternion=default)
+    public UIBase OpenUI(string uiName,Vector3 pos=default,Quaternion quaternion=default,Transform parent = null)
     {
         //先在关闭的UI中查找
         if(uiCloses.Count > 0)
@@ -132,6 +132,10 @@ public class UIManager : MonoBehaviour
                 {
                     value.transform.rotation = quaternion;
                 }
+                if (parent != null)
+                {
+                    value.transform.SetParent(parent);
+                }
 
                 uiCloses.Remove(key);
                 return value;
@@ -141,7 +145,7 @@ public class UIManager : MonoBehaviour
         }
 
         //如果找不到或没有
-        return CreateUI(uiName,pos, quaternion);
+        return CreateUI(uiName,pos, quaternion,parent);
     }
 
     /// <summary>
@@ -149,7 +153,7 @@ public class UIManager : MonoBehaviour
     /// </summary>
     /// <param name="uiName"></param>
     /// <returns></returns>
-    private UIBase CreateUI(string uiName,Vector3 pos=default,Quaternion quaternion=default)
+    private UIBase CreateUI(string uiName,Vector3 pos=default,Quaternion quaternion=default,Transform parent = null)
     {
         //加载UI预制体
         GameObject prefab = Resources.Load<GameObject>(uiRootPath + uiName);
@@ -165,10 +169,13 @@ public class UIManager : MonoBehaviour
         {
             uiInstance.transform.position = pos;
         }
-
         if (quaternion != default)
         {
             uiInstance.transform.rotation = quaternion;
+        }
+        if (parent != null)
+        {
+            uiInstance.transform.SetParent(parent);
         }
         uiInstance.TryGetComponent<UIBase>(out UIBase component);
 

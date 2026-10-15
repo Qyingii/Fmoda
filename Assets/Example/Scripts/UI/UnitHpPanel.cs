@@ -5,8 +5,8 @@ using UnityEngine;
 /// <summary>
 /// 单位血量面板 —— 显示所有机器人的当前 HP。
 ///
-/// 演示 UIWidget 的标准用法：
-///   1. OnBind 中订阅 CombatDataCenter 的事件
+/// 演示 UIBase 的标准用法：
+///   1. OnBind 中订阅单位模块的事件
 ///   2. OnUnbind 中取消订阅
 ///   3. OnRefresh 中做初始同步
 /// </summary>
@@ -16,7 +16,6 @@ public class UnitHpPanel : UIBase
 
     //单位模块
     private IUnitManager unitManager;
-    // ── UIWidget ──
 
     protected override void OnBind()
     {
@@ -50,7 +49,7 @@ public class UnitHpPanel : UIBase
         if (_text == null) return;
 
         var all = unitManager.GetAllUnitData();
-        string pre="按下 Q 键扣血，按下W 键向前移动，按下E键打开测试UI，按下空格键结束本流程\n";
+        string pre="按下 Q 键扣血，按下W 键向前移动，按下E键打开测试UI，按下R键派生单位，按下空格键结束本流程\n";
         string result = "";
         foreach (var kv in all)
         {

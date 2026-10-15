@@ -23,6 +23,9 @@ namespace Conquer.Unit
         // 单位预制体
         public GameObject unitPrefab;
 
+        //具有对象池的单位预制体
+        public GameObject unitPoolPrefab;
+
         /// <summary>
         /// 注册数据
         /// </summary>
@@ -47,14 +50,23 @@ namespace Conquer.Unit
             OnFlowEnd = null;
             OnHpChanged = null;
         }
-#endregion
 
-#region 流程
+        void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                //随机位置派生unitPoolPrefab
+                GF.Spawn(unitPoolPrefab, new Vector3(UnityEngine.Random.Range(-5, 5), UnityEngine.Random.Range(-5, 5), 0), Quaternion.identity);
+            }
+        }
+        #endregion
+
+        #region 流程
         //初始化
         public void Init()
         {
             // 1. 派生单位
-            var go1 = Instantiate(unitPrefab, new Vector3(-1, -1, 0), Quaternion.identity);
+            var go1 = GF.Spawn(unitPrefab, new Vector3(-1, -1, 0), Quaternion.identity);
 
             // 2. 获取 Units
             var unit1 = go1.GetComponent<Units>();

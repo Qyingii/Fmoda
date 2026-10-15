@@ -319,6 +319,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   unitPrefab: {fileID: 170104998562891196, guid: 241484eaea268e54aa6b49dcf781e6c9, type: 3}
+  unitPoolPrefab: {fileID: 5498139849803209311, guid: c2b804761f87bac48981d13dcb226501, type: 3}
 --- !u!1 &711977718
 GameObject:
   m_ObjectHideFlags: 0
@@ -467,6 +468,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   id: 
+  independence: 0
   _text: {fileID: 711977720}
 --- !u!1001 &774298312
 PrefabInstance:
