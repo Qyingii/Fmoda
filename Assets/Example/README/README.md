@@ -31,6 +31,12 @@ F[GF（一切的起点）]--启动--> E
 - 用于存放全局配置，如分辨率、帧率等
 - 具体可以参考`Assets/FModa/Architecture/Global/GameConfig.cs`，实例放在`Assets/Resources/GameConfig.asset`
 
+### 输入管理器（InputManager）
+- 用于统一管理输入事件
+- 可以用来配置自定义按键、修饰按键等
+- 基本和Unity的InputManager一致的用法
+- 具体用法可以参考`Assets\Example\Scripts\UI\UnitHpPanel.cs`
+
 ## 模块（Module）
 模块内部高内聚，用命名空间分开，写一个接口暴露所有这个模块可用属性和方法，模块需要做到从这个项目移动到另一个项目完全不会报错
 每个模块单独文件夹

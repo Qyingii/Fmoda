@@ -18,7 +18,7 @@ public class ExampleFlow : IFlow
         //用事件来实现流程控制
         unitManager.OnFlowEnd += ()=>
         {
-            GF.flowManager.SwitchFlow<EndFlow>(this);
+            GF.flow.SwitchFlow<EndFlow>(this);
         };
     }
 

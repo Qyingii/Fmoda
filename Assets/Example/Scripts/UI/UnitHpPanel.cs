@@ -36,9 +36,9 @@ public class UnitHpPanel : UIBase
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.E))
+        if (GF.input.Trigger("OpenUI"))
         {
-            GF.uiManager.OpenUI("BlankPanel");
+            GF.ui.OpenUI("BlankPanel");
         }
     }
 

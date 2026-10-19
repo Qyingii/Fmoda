@@ -53,10 +53,15 @@ namespace Conquer.Unit
 
         void Update()
         {
-            if (Input.GetKeyDown(KeyCode.R))
+            if (GF.input.Trigger("Spawn"))
             {
                 //随机位置派生unitPoolPrefab
                 GF.Spawn(unitPoolPrefab, new Vector3(UnityEngine.Random.Range(-5, 5), UnityEngine.Random.Range(-5, 5), 0), Quaternion.identity);
+            }
+
+            if (GF.input.Trigger("EndFlow"))
+            {
+                EndFlow();
             }
         }
         #endregion

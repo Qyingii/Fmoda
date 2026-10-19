@@ -30,17 +30,12 @@ public class Units : MonoBehaviour
 
     void Update()
     {
-        if(Input.GetKey(KeyCode.W))
+        if(GF.input.Trigger("MoveUp"))
         {
             transform.Translate(unitManager.Move(unitId));
         }
 
-        if(Input.GetKeyDown(KeyCode.Space))
-        {
-            unitManager.EndFlow();
-        }
-
-        if(Input.GetKeyDown(KeyCode.Q))
+        if(GF.input.Trigger("UnitDeductionOfBlood"))
         {
             unitManager.TakeDamage(unitId);
         }

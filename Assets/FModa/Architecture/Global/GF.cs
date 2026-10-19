@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FModa.Data;
+using FModa.InputSystem;
 using FModa.Pool;
 using UnityEngine;
 
@@ -16,9 +17,10 @@ public class GF : MonoBehaviour
 
     //全局字段
     public static GameConfig config;//游戏配置
-    public static FlowManager flowManager;//流程管理器
-    public static UIManager uiManager;//UI管理器
-    public static PoolManager poolManager;//对象池管理器
+    public static FlowManager flow;//流程管理器
+    public static UIManager ui;//UI管理器
+    public static PoolManager pool;//对象池管理器
+    public static InputManager input;//输入管理器
 
     #region 生命周期函数
 
@@ -45,19 +47,22 @@ public class GF : MonoBehaviour
         DataManager.PreWarm();
 
         //初始化流程管理器
-        flowManager = new FlowManager();
+        flow = new FlowManager();
 
         //扫描场景，自动注册已挂载在 GameObject 上的 IModule 组件（如 RAManager）
         AutoRegisterSceneModules();
 
         //扫描场景，自动获取UIManager
-        uiManager = FindObjectOfType<UIManager>();
+        ui = FindObjectOfType<UIManager>();
 
         //创建对象池
-        poolManager = new PoolManager();
+        pool = new PoolManager();
+
+        //创建输入管理器
+        input = new InputManager();
 
         //启动第一个流程
-        flowManager.StartFlow<ExampleFlow>();
+        flow.StartFlow<ExampleFlow>();
 
     }
 
@@ -73,7 +78,7 @@ public class GF : MonoBehaviour
             DispatchModuleUpdate();
 
             //流程更新
-            flowManager.CurrentFlow.Update();
+            flow.CurrentFlow.Update();
             
             //逻辑帧结束后触发模块的 OnLateUpdate
             DispatchModuleLateUpdate();
@@ -258,7 +263,7 @@ public class GF : MonoBehaviour
                 poolable.source = prefab;
             }
             
-            go = poolManager.GetObject(poolable.source);
+            go = pool.GetObject(poolable.source);
         }
 
         if (position != default)
@@ -294,7 +299,7 @@ public class GF : MonoBehaviour
         else
         {
             //回收到对象池
-            poolManager.ReleaseObject(poolable.source,go);
+            pool.ReleaseObject(poolable.source,go);
         }
     }
 

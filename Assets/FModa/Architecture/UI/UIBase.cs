@@ -65,7 +65,7 @@ public abstract class UIBase : MonoBehaviour
         if (!independence && !id.Contains("_"))
         {
             id = gameObject.name;
-            id = GF.uiManager.Register(this, id);
+            id = GF.ui.Register(this, id);
         }
     }
 
@@ -107,7 +107,7 @@ public abstract class UIBase : MonoBehaviour
     /// </summary>
     public virtual void Close()
     {
-        GF.uiManager.CloseUI(id);
+        GF.ui.CloseUI(id);
     }
 
     /// <summary>
@@ -126,10 +126,10 @@ public abstract class UIBase : MonoBehaviour
             subUIs = new Dictionary<string, UIBase>();
             
             //订阅UI清理事件
-            GF.uiManager.OnUIClear += ClearSubUI;
+            GF.ui.OnUIClear += ClearSubUI;
         }
 
-        var subUI=GF.uiManager.OpenUI(subUIName,pos,quaternion,parent);
+        var subUI=GF.ui.OpenUI(subUIName,pos,quaternion,parent);
 
         //设置父级关系
         subUI.transform.SetParent(transform);
@@ -148,7 +148,7 @@ public abstract class UIBase : MonoBehaviour
         if(subUIs!=null)
         {
             //取消订阅事件
-            GF.uiManager.OnUIClear -= ClearSubUI;
+            GF.ui.OnUIClear -= ClearSubUI;
 
             if (subUIs.Count > 0)
             {
@@ -157,7 +157,7 @@ public abstract class UIBase : MonoBehaviour
                 {
                     if (subUI.Value != null)
                     {
-                        GF.uiManager.CloseUI(subUI.Key);
+                        GF.ui.CloseUI(subUI.Key);
                     }
                 }
             }
@@ -167,7 +167,7 @@ public abstract class UIBase : MonoBehaviour
 
         //重置位置
         //加载UI预制体
-        var path= GF.uiManager.uiRootPath + GF.uiManager.SplitUIID(id);
+        var path= GF.ui.uiRootPath + GF.ui.SplitUIID(id);
         GameObject prefab = Resources.Load<GameObject>(path);
         if (prefab == null)
         {
