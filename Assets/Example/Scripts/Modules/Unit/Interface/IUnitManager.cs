@@ -59,5 +59,10 @@ namespace Conquer.Unit
         /// <param name="id"></param>
         public void UnRegister(long id);
 
+        /// <summary>
+        /// 随机生成单位
+        /// </summary>
+        public void SpawnRandomUnit();
+
     }
 }

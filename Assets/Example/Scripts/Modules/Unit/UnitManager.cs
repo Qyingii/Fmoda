@@ -51,19 +51,6 @@ namespace Conquer.Unit
             OnHpChanged = null;
         }
 
-        void Update()
-        {
-            if (GF.input.Trigger("Spawn"))
-            {
-                //随机位置派生unitPoolPrefab
-                GF.Spawn(unitPoolPrefab, new Vector3(UnityEngine.Random.Range(-5, 5), UnityEngine.Random.Range(-5, 5), 0), Quaternion.identity);
-            }
-
-            if (GF.input.Trigger("EndFlow"))
-            {
-                EndFlow();
-            }
-        }
         #endregion
 
         #region 流程
@@ -110,6 +97,12 @@ namespace Conquer.Unit
         public Dictionary<long, UnitData> GetAllUnitData()
         {
             return unitDataCenter.GetAllData();
+        }
+
+        //随机派生单位
+        public void SpawnRandomUnit()
+        {
+            GF.Spawn(unitPoolPrefab, new Vector3(UnityEngine.Random.Range(-5, 5), UnityEngine.Random.Range(-5, 5), 0), Quaternion.identity);
         }
 
         #endregion

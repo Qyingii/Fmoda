@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FModa.Data;
-using FModa.InputSystem;
 using FModa.Pool;
 using UnityEngine;
 
@@ -20,7 +19,6 @@ public class GF : MonoBehaviour
     public static FlowManager flow;//流程管理器
     public static UIManager ui;//UI管理器
     public static PoolManager pool;//对象池管理器
-    public static InputManager input;//输入管理器
 
     #region 生命周期函数
 
@@ -57,9 +55,6 @@ public class GF : MonoBehaviour
 
         //创建对象池
         pool = new PoolManager();
-
-        //创建输入管理器
-        input = new InputManager();
 
         //启动第一个流程
         flow.StartFlow<ExampleFlow>();

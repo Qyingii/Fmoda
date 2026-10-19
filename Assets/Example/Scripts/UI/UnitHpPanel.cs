@@ -1,4 +1,5 @@
 ﻿using Conquer.Unit;
+using FModa.InputSystem;
 using TMPro;
 using UnityEngine;
 
@@ -16,11 +17,13 @@ public class UnitHpPanel : UIBase
 
     //单位模块
     private IUnitManager unitManager;
+    private IInputManager inputManager;
 
     protected override void OnBind()
     {
         //获取单位模块
         unitManager = GF.GetModule<UnitManager>();
+        inputManager = GF.GetModule<InputManager>();
         unitManager.OnHpChanged += RefreshAll;
     }
 
@@ -36,9 +39,20 @@ public class UnitHpPanel : UIBase
 
     void Update()
     {
-        if (GF.input.Trigger("OpenUI"))
+        if (inputManager.KeyDown("OpenUI"))
         {
             GF.ui.OpenUI("BlankPanel");
+        }
+
+        if (inputManager.KeyDown("Spawn"))
+        {
+            //随机位置派生unitPoolPrefab
+            unitManager.SpawnRandomUnit();
+        }
+
+        if (inputManager.KeyDown("EndFlow"))
+        {
+            unitManager.EndFlow();
         }
     }
 

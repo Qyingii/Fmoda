@@ -1,4 +1,5 @@
 using Conquer.Unit;
+using FModa.InputSystem;
 using UnityEngine;
 
 public class Units : MonoBehaviour
@@ -8,6 +9,7 @@ public class Units : MonoBehaviour
 
     //单位模块
     private IUnitManager unitManager;
+    private IInputManager inputManager;
 
     void Start()
     {
@@ -24,18 +26,19 @@ public class Units : MonoBehaviour
 
         //获取单位模块
         unitManager = GF.GetModule<UnitManager>();
+        inputManager = GF.GetModule<InputManager>();
         unitId = unitManager.Register(unitData); //注册单位
     }
 
 
     void Update()
     {
-        if(GF.input.Trigger("MoveUp"))
+        if(inputManager.KeyHold("MoveUp"))
         {
             transform.Translate(unitManager.Move(unitId));
         }
 
-        if(GF.input.Trigger("UnitDeductionOfBlood"))
+        if(inputManager.KeyDown("UnitDeductionOfBlood"))
         {
             unitManager.TakeDamage(unitId);
         }

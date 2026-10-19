@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Conquer.Unit;
+using FModa.InputSystem;
 using UnityEngine;
 
 public class ExampleFlow : IFlow
@@ -11,6 +12,7 @@ public class ExampleFlow : IFlow
         Debug.Log("进入 ExampleFlow");
         //激活模块
         unitManager=GF.GetModule<UnitManager>();
+        GF.CreateModule<InputManager>();
 
         //初始化模块
         unitManager.Init();
