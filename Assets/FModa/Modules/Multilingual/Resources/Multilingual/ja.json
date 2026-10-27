@@ -1,0 +1,22 @@
+{
+  "code": "ja",
+  "displayName": "日本語",
+  "entries": [
+    { "key": "common.yes", "value": "はい" },
+    { "key": "common.no", "value": "いいえ" },
+    { "key": "common.ok", "value": "OK" },
+    { "key": "common.cancel", "value": "キャンセル" },
+    { "key": "common.close", "value": "閉じる" },
+    { "key": "ui.start", "value": "ゲーム開始" },
+    { "key": "ui.settings", "value": "設定" },
+    { "key": "ui.language", "value": "言語" },
+    { "key": "ui.unitHpPanel.introduce", "value": "QキーでHPを減らし、Wキーで前進、EキーでテストUIを開き、Rキーでユニットを生成、スペースキーでこの処理を終了します" },
+    { "key": "ui.unitHpPanel.unitInfo", "value": "番号：{0} 体力：{1}/{2} 速度：{3}" },
+    { "key": "ui.unitHpPanel.noUnit", "value": "生存しているユニットがいません" },
+    { "key": "hud.hp", "value": "HP" },
+    { "key": "hud.score", "value": "スコア：{0}" },
+    { "key": "message.welcome", "value": "ようこそ！" },
+    { "key": "message.language_changed", "value": "言語を{0}に変更しました。" },
+    { "key": "error.network", "value": "ネットワーク接続に失敗しました。" }
+  ]
+}

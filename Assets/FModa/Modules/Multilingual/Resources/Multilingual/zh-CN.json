@@ -1,0 +1,22 @@
+{
+  "code": "zh-CN",
+  "displayName": "简体中文",
+  "entries": [
+    { "key": "common.yes", "value": "是" },
+    { "key": "common.no", "value": "否" },
+    { "key": "common.ok", "value": "确定" },
+    { "key": "common.cancel", "value": "取消" },
+    { "key": "common.close", "value": "关闭" },
+    { "key": "ui.start", "value": "开始游戏" },
+    { "key": "ui.settings", "value": "设置" },
+    { "key": "ui.language", "value": "语言" },
+    { "key": "ui.unitHpPanel.introduce", "value": "按下 Q 键扣血，按下W 键向前移动，按下E键打开测试UI，按下R键派生单位，按下空格键结束本流程" },
+    { "key": "ui.unitHpPanel.unitInfo", "value": "序列号：{0}  血量：{1} / {2}  速度：{3}" },
+    { "key": "ui.unitHpPanel.noUnit", "value": "无存活单位" },
+    { "key": "hud.hp", "value": "生命值" },
+    { "key": "hud.score", "value": "分数：{0}" },
+    { "key": "message.welcome", "value": "欢迎！" },
+    { "key": "message.language_changed", "value": "语言已切换为{0}。" },
+    { "key": "error.network", "value": "网络连接失败。" }
+  ]
+}

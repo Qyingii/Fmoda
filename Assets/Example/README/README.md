@@ -70,6 +70,28 @@ F[GF（一切的起点）]--启动--> E
     }
 ```
 
+### 内置模块
+#### Debug模块
+位置：`Assets/FModa/Modules/Debug`
+用途：用于在Game中查看Debug信息
+
+#### 网络模块
+位置：`Assets/FModa/Modules/Network`
+用途：用于网络通信，制作联机游戏，协议为tcp协议
+
+#### 热更新模块
+位置：`Assets/FModa/Modules/Hotfix`
+用途：用于热更新，使用xlua作为热更新引擎
+
+#### 输入模块
+位置：`Assets/FModa/Modules/Input`
+用途：用于管理和获取输入，支持键鼠、手柄、触摸屏三种输入方式，支持使用轮询或事件来传递输入
+
+#### 多语言模块
+位置：`Assets/FModa/Modules/Multilingual`
+用途：用于多语言支持，内置支持中文、英文、繁体、日语、韩语等多种语言，可自己添加新支持语言，支持自动切换语言
+
+
 ## 流程（Flow）
 ### 启动
 在GF的`Awake`方法中，可以指定启动流程

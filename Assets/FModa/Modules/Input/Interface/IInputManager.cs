@@ -28,6 +28,13 @@ namespace FModa.InputSystem
         /// </summary>
         bool InputEnabled { get; set; }
 
+        /// <summary>
+        /// 获取某动作的绑定配置。
+        /// </summary>
+        /// <param name="actionID"></param>
+        /// <returns></returns>
+        KeyBinding GetBinding(string actionID);
+
         // ===============================================================
         // 轮询
         // ===============================================================

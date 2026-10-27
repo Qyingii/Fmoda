@@ -36,6 +36,13 @@ namespace FModa.InputSystem
             LoadBindings();
         }
 
+        /// <summary>
+        /// 获取指定输入键位
+        /// </summary>
+        /// <param name="actionID"></param>
+        /// <returns></returns>
+        public KeyBinding GetBinding(string actionID) => currentBindings[actionID];
+
         // ===============================================================
         // 轮询
         // ===============================================================

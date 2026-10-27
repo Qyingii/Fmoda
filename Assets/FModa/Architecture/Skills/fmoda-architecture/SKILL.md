@@ -64,7 +64,7 @@ GF           →  Flow / UI / Pool / Module 注册表
 | UI 基类 | `Assets/FModa/Architecture/UI/UIBase.cs` | `OnBind / OnUnbind / OnRefresh`、子 UI |
 | UI 管理 | `Assets/FModa/Architecture/UI/UIManager.cs` | `OpenUI / CloseUI`、复用、延迟销毁 |
 | 对象池 | `Assets/FModa/Architecture/Renders/Poolable.cs`、`PoolManager.cs` | `GF.Spawn / GF.Despawn` 的底层 |
-| 内置模块 | `Assets/FModa/Modules/{Input,Network,Modding,Hotfix}/` | 可参考的标准模块结构 |
+| 内置模块 | `Assets/FModa/Modules/{Input,Network,Modding,Hotfix,Multilingual}/` | 可参考的标准模块结构 |
 | 示例纵切 | `Assets/Example/Scripts/` | Unit 模块、Flow、Render、UI 的完整参考实现 |
 
 ---

@@ -1,0 +1,22 @@
+{
+  "code": "ko",
+  "displayName": "한국어",
+  "entries": [
+    { "key": "common.yes", "value": "예" },
+    { "key": "common.no", "value": "아니요" },
+    { "key": "common.ok", "value": "확인" },
+    { "key": "common.cancel", "value": "취소" },
+    { "key": "common.close", "value": "닫기" },
+    { "key": "ui.start", "value": "게임 시작" },
+    { "key": "ui.settings", "value": "설정" },
+    { "key": "ui.language", "value": "언어" },
+    { "key": "ui.unitHpPanel.introduce", "value": "Q 키로 체력을 감소시키고, W 키로 전진하며, E 키로 테스트 UI를 열고, R 키로 유닛을 생성하며, 스페이스 바를 눌러 이 과정을 종료합니다" },
+    { "key": "ui.unitHpPanel.unitInfo", "value": "번호: {0} 체력: {1}/{2} 속도: {3}" },
+    { "key": "ui.unitHpPanel.noUnit", "value": "생존한 유닛이 없습니다" },
+    { "key": "hud.hp", "value": "HP" },
+    { "key": "hud.score", "value": "점수: {0}" },
+    { "key": "message.welcome", "value": "환영합니다!" },
+    { "key": "message.language_changed", "value": "언어가 {0}(으)로 변경되었습니다." },
+    { "key": "error.network", "value": "네트워크 연결에 실패했습니다." }
+  ]
+}

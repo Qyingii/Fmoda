@@ -1,4 +1,5 @@
 ﻿using Conquer.Unit;
+using FModa.Multilingual;
 
 namespace FModa.Data
 {
@@ -24,6 +25,10 @@ namespace FModa.Data
         private static UnitDataCenter _unit;
         public static UnitDataCenter Unit => _unit ??= new UnitDataCenter();
 
+        //多语言数据中心
+        private static MultilingualDataCenter _multilingual;
+        public static MultilingualDataCenter Multilingual => _multilingual ??= new MultilingualDataCenter();
+
         // ── 预加载（可选）──
 
         /// <summary>
@@ -34,6 +39,7 @@ namespace FModa.Data
         {
             // 例：战斗系统在游戏一开始就会用到
             _unit = new UnitDataCenter();
+            _multilingual = new MultilingualDataCenter();
 
             // 后续加：
             // _player = new PlayerDC();

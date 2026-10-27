@@ -1,0 +1,19 @@
+{
+  "code": "zh-TW",
+  "displayName": "繁體中文",
+  "entries": [
+    { "key": "common.yes", "value": "是" },
+    { "key": "common.no", "value": "否" },
+    { "key": "common.ok", "value": "確定" },
+    { "key": "common.cancel", "value": "取消" },
+    { "key": "common.close", "value": "關閉" },
+    { "key": "ui.start", "value": "開始遊戲" },
+    { "key": "ui.settings", "value": "設定" },
+    { "key": "ui.language", "value": "語言" },
+    { "key": "hud.hp", "value": "生命值" },
+    { "key": "hud.score", "value": "分數：{0}" },
+    { "key": "message.welcome", "value": "歡迎！" },
+    { "key": "message.language_changed", "value": "語言已切換為{0}。" },
+    { "key": "error.network", "value": "網路連線失敗。" }
+  ]
+}

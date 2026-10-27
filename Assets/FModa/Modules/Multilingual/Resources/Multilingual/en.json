@@ -1,0 +1,22 @@
+{
+  "code": "en",
+  "displayName": "English",
+  "entries": [
+    { "key": "common.yes", "value": "Yes" },
+    { "key": "common.no", "value": "No" },
+    { "key": "common.ok", "value": "OK" },
+    { "key": "common.cancel", "value": "Cancel" },
+    { "key": "common.close", "value": "Close" },
+    { "key": "ui.start", "value": "Start Game" },
+    { "key": "ui.settings", "value": "Settings" },
+    { "key": "ui.language", "value": "Language" },
+    { "key": "ui.unitHpPanel.introduce", "value": "Press the Q key to deduct blood, press the W key to move forward, press the E key to open the test UI, press the R key to derive units, and press the space bar to end this process" },
+    { "key": "ui.unitHpPanel.unitInfo", "value": "Serial number: {0} Health: {1}/{2} Speed: {3}" },
+    { "key": "ui.unitHpPanel.noUnit", "value": "No surviving units" },
+    { "key": "hud.hp", "value": "HP" },
+    { "key": "hud.score", "value": "Score: {0}" },
+    { "key": "message.welcome", "value": "Welcome!" },
+    { "key": "message.language_changed", "value": "Language changed to {0}." },
+    { "key": "error.network", "value": "Network connection failed." }
+  ]
+}

@@ -1,5 +1,6 @@
 ﻿using Conquer.Unit;
 using FModa.InputSystem;
+using FModa.Multilingual;
 using TMPro;
 using UnityEngine;
 
@@ -18,12 +19,14 @@ public class UnitHpPanel : UIBase
     //单位模块
     private IUnitManager unitManager;
     private IInputManager inputManager;
+    private IMultilingualManager multilingualManager;
 
     protected override void OnBind()
     {
         //获取单位模块
         unitManager = GF.GetModule<UnitManager>();
         inputManager = GF.GetModule<InputManager>();
+        multilingualManager = GF.GetModule<MultilingualManager>();
         unitManager.OnHpChanged += RefreshAll;
     }
 
@@ -63,14 +66,16 @@ public class UnitHpPanel : UIBase
         if (_text == null) return;
 
         var all = unitManager.GetAllUnitData();
-        string pre="按下 Q 键扣血，按下W 键向前移动，按下E键打开测试UI，按下R键派生单位，按下空格键结束本流程\n";
+        // "按下 Q 键扣血，按下W 键向前移动，按下E键打开测试UI，按下R键派生单位，按下空格键结束本流程\n";
+        string pre=multilingualManager.GetText("ui.unitHpPanel.introduce")+'\n';
         string result = "";
         foreach (var kv in all)
         {
             var data = kv.Value;
-            result += $"序列号：{kv.Key}  血量：{data.hp} / {data.maxHp}  速度：{data.moveSpeed}\n";
+            //$"序列号：{kv.Key}  血量：{data.hp} / {data.maxHp}  速度：{data.moveSpeed}\n";
+            result += multilingualManager.GetText("ui.unitHpPanel.unitInfo", kv.Key, data.hp, data.maxHp, data.moveSpeed) + '\n';
         }
 
-        _text.text =pre + (string.IsNullOrEmpty(result) ? "无存活单位" : result.TrimEnd('\n'));
+        _text.text =pre + (string.IsNullOrEmpty(result) ? multilingualManager.GetText("ui.unitHpPanel.noUnit") : result.TrimEnd('\n'));
     }
 }
