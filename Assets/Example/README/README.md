@@ -91,6 +91,10 @@ F[GF（一切的起点）]--启动--> E
 位置：`Assets/FModa/Modules/Multilingual`
 用途：用于多语言支持，内置支持中文、英文、繁体、日语、韩语等多种语言，可自己添加新支持语言，支持自动切换语言
 
+#### 寻路模块
+位置：`Assets/FModa/Modules/Pathfinding`
+用途：用于单位寻路，使用的是开源的NavMeshPlus
+
 
 ## 流程（Flow）
 ### 启动
