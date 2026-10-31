@@ -5,9 +5,13 @@ namespace FModa.Data
 {
     /// <summary>
     /// 泛型数据中心
+    ///
+    /// 数据生命周期事件是「数据中心 → 模块 → 视图」这条反向通知回路的起点：
+    /// 任何路径上的增/删/清空都会广播出去，订阅者才能知道自己持有的数据已经没了。
+    /// 模块负责把它们翻译成业务语义再转发给视图（视图不直接订阅数据中心）。
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class DataCenter<T> : IDataCenter where T : class
+    public class DataCenter<T> : IDataCenter where T : IData
     {
         //数据
         protected readonly Dictionary<long, T> datas = new();
@@ -28,7 +32,7 @@ namespace FModa.Data
             else
             {
                 Debug.LogWarning($"未找到{typeof(T).Name}类型的数据，Id: {Id}");
-                return null;
+                return default;
             }
         }
 
@@ -44,18 +48,19 @@ namespace FModa.Data
         /// <summary>
         /// 添加数据
         /// </summary>
-        /// <param name="Data"></param>
+        /// <param name="data"></param>
         /// <returns></returns>
-        public virtual long AddData(T Data)
+        public virtual long AddData(T data)
         {
-            if (Data == null)
+            if (data == null)
             {
                 Debug.LogWarning($"无法添加空的{typeof(T).Name}类型的数据");
                 return -1;
             }
 
             id++;
-            datas.Add(id, Data);
+            data.SetId(id);
+            datas.Add(id, data);
             return id;
         }
 
@@ -69,6 +74,8 @@ namespace FModa.Data
             if (datas.ContainsKey(Id))
             {
                 datas[Id] = Data;
+                //请确ID未被修改
+                Data.SetId(Id);
                 return true;
             }
             else

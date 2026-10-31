@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class Units : MonoBehaviour
 {
-    [SerializeField]private long unitId;
     public UnitData unitData;
 
     //单位模块
@@ -27,7 +26,7 @@ public class Units : MonoBehaviour
         //获取单位模块
         unitManager = GF.GetModule<UnitManager>();
         inputManager = GF.GetModule<InputManager>();
-        unitId = unitManager.Register(unitData); //注册单位
+        unitManager.Register(unitData); //注册单位
     }
 
 
@@ -35,17 +34,17 @@ public class Units : MonoBehaviour
     {
         if(inputManager.KeyHold("MoveUp"))
         {
-            transform.Translate(unitManager.Move(unitId));
+            transform.Translate(unitManager.Move(unitData.Id));
         }
 
         if(inputManager.KeyDown("UnitDeductionOfBlood"))
         {
-            unitManager.TakeDamage(unitId);
+            unitManager.TakeDamage(unitData.Id);
         }
     }
 
     void OnDestroy()
     {
-        unitManager.UnRegister(unitId);
+        unitManager.UnRegister(unitData.Id);
     }
 }
