@@ -523,6 +523,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5751510378457224234, guid: 241484eaea268e54aa6b49dcf781e6c9, type: 3}
+      propertyPath: unitId
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5751510378457224234, guid: 241484eaea268e54aa6b49dcf781e6c9, type: 3}
       propertyPath: unitData.moveSpeed
       value: 3
       objectReference: {fileID: 0}

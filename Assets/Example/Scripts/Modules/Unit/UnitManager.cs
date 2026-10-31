@@ -64,7 +64,7 @@ namespace Conquer.Unit
             var unit1 = go1.GetComponent<Units>();
 
             // 3. 写入 UnitDataCenter
-            unit1.unitData = new UnitData { maxHp = 90, hp = 90, moveSpeed = 2 };
+            unit1.unitId = Register(new UnitData { maxHp = 90, hp = 90, moveSpeed = 2 });
         }
 
         //结束流程

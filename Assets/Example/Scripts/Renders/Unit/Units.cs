@@ -4,7 +4,11 @@ using UnityEngine;
 
 public class Units : MonoBehaviour
 {
-    public UnitData unitData;
+
+    /// <summary>
+    /// 单位ID
+    /// </summary>
+    public long unitId=-1;
 
     //单位模块
     private IUnitManager unitManager;
@@ -12,21 +16,22 @@ public class Units : MonoBehaviour
 
     void Start()
     {
-        //确保单位数据不为空
-        if(unitData == null)
-        {
-            unitData = new UnitData()
-            {
-                maxHp = 100,
-                hp = 100,
-                moveSpeed = 2,
-            };
-        }
-
-        //获取单位模块
         unitManager = GF.GetModule<UnitManager>();
         inputManager = GF.GetModule<InputManager>();
-        unitManager.Register(unitData); //注册单位
+        //对已经注册的单位不再次注册
+        if (unitId!=-1) return;
+
+        //确保单位数据不为空
+        //这是仅仅用于初始化，不保存数据，数据都保存在数据中心
+        var unitData = new UnitData()
+        {
+            maxHp = 100,
+            hp = 100,
+            moveSpeed = 3,
+        };
+
+        //获取单位模块
+        unitId=unitManager.Register(unitData); //注册单位
     }
 
 
@@ -34,17 +39,17 @@ public class Units : MonoBehaviour
     {
         if(inputManager.KeyHold("MoveUp"))
         {
-            transform.Translate(unitManager.Move(unitData.Id));
+            transform.Translate(unitManager.Move(unitId));
         }
 
         if(inputManager.KeyDown("UnitDeductionOfBlood"))
         {
-            unitManager.TakeDamage(unitData.Id);
+            unitManager.TakeDamage(unitId);
         }
     }
 
     void OnDestroy()
     {
-        unitManager.UnRegister(unitData.Id);
+        unitManager.UnRegister(unitId);
     }
 }
