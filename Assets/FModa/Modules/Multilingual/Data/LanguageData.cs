@@ -28,6 +28,12 @@ namespace FModa.Multilingual
         /// </summary>
         [NonSerialized]
         public HashSet<string> customKeys = new(StringComparer.Ordinal);
+
+        public override IData Clone()
+        {
+            throw new NotImplementedException();
+        }
+
     }
 
     /// <summary>

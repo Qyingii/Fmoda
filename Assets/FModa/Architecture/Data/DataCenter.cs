@@ -167,6 +167,16 @@ namespace FModa.Data
         {
             return datas.ContainsValue(Data);
         }
+
+        /// <summary>
+        /// 克隆一份数据
+        /// </summary>
+        /// <param name="Id"></param>
+        /// <returns></returns>
+        public virtual long CloneData(long Id)
+        {
+            return AddData((T)GetData(Id).Clone());
+        }
     }
 
 

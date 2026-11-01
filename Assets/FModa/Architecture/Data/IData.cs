@@ -18,4 +18,10 @@ public abstract class IData
     {
         this.id = id;
     }
+
+    /// <summary>
+    /// 克隆数据
+    /// </summary>
+    /// <returns></returns>
+    public abstract IData Clone();
 }

@@ -16,6 +16,11 @@ namespace Conquer.Unit
         public int hp;
         //移动速度
         public float moveSpeed;
+
+        public override IData Clone()
+        {
+            throw new System.NotImplementedException();
+        }
     }
 }
 
