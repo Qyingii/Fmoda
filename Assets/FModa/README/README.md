@@ -162,6 +162,9 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 - 如果你想引用场景中的游戏对象，你可以给他们添加一个接口`ISGO`,然后实现其接口内容，你需要手动填入一个唯一的ID，然后就可以通过`GF.sgo.gameObjects["UnitHpPanel"].GetComponent<UnitHpPanel>()`获取到这个游戏对象以及组件了
 ![alt text](image-5.png)
 
+- 如果你不想这么麻烦，还有一个更简单的方式是，直接添加`Sgo`组件
+![alt text](image-11.png)
+
 ## UI
 - 和渲染器大致类似，但是继承`UIBase`
 - 放在UI上

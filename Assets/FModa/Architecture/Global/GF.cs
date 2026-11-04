@@ -65,6 +65,7 @@ public class GF : MonoBehaviour
 
         //获取场景游戏对象管理器
         sgo = GetComponent<GameObjectManager>();
+        sgo.Init();
 
         //启动第一个流程
         Type type = Type.GetType(startFlowName);

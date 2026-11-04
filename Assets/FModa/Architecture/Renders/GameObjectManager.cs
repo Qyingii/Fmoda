@@ -23,12 +23,6 @@ namespace FModa.GameObjectManager
         /// </summary>
         public Dictionary<string, GameObject> gameObjects = new Dictionary<string, GameObject>();
 
-
-        void Awake()
-        {
-            Init();
-        }
-
         void OnDestroy()
         {
             Clear();

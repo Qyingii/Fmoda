@@ -14,7 +14,7 @@ using UnityEngine;
 ///   3. OnRefresh 中做初始同步
 /// ISGO:用来演示如何获取到这个游戏对象
 /// </summary>
-public class UnitHpPanel : UIBase,ISGO
+public class UnitHpPanel : UIBase
 {
     [SerializeField] private TextMeshProUGUI _text;
 
@@ -22,18 +22,6 @@ public class UnitHpPanel : UIBase,ISGO
     private IUnitManager unitManager;
     private IInputManager inputManager;
     private IMultilingualManager multilingualManager;
-
-    /// <summary>
-    /// 跨场景游戏对象id,用于被加载到指定的字段中，该值由用户手动填写，请确保每个场景内每个游戏对象唯一
-    /// </summary>
-    [SerializeField] private string _sgoid;
-
-    /// <summary>
-    /// 场景名称，用于标记该游戏对象应该在哪个场景中被加载，不写则默认加载
-    /// </summary>
-    [SerializeField] private string _sceneName;
-    public string SgoId { get => _sgoid;}
-    public string SceneName { get => _sceneName;}
 
 
     protected override void OnBind()
