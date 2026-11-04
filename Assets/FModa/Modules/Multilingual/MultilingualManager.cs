@@ -68,7 +68,7 @@ namespace FModa.Multilingual
 
         public void Init() => EnsureInitialized();
 
-        public void OnDestroy()
+        public void OnRemove()
         {
             OnLanguageChanged = null;
             OnLanguageAdded = null;

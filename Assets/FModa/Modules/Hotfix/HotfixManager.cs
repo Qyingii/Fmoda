@@ -90,7 +90,7 @@ namespace FModa.Hotfix
             luaLoad = new LuaLoad(persistentPath);
         }
 
-        public void OnDestroy()
+        public void OnRemove()
         {
             resourcesDownload?.Cancel();
             luaLoad?.Dispose();

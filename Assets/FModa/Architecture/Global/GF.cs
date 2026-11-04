@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FModa.Data;
+using FModa.GameObjectManager;
 using FModa.Pool;
 using UnityEngine;
 
@@ -10,7 +11,12 @@ using UnityEngine;
 /// </summary>
 public class GF : MonoBehaviour
 {
-    public static readonly float tick = 0.1f;//逻辑帧
+    [Tooltip("逻辑帧间隔，模块层每隔多少秒执行一次")]
+    public float tick = 0.1f;//逻辑帧
+
+    [Tooltip("启动流程，启动游戏时自动启动的第一个流程")]
+    public string startFlowName = "ExampleFlow";//启动流程
+    
     private float _tickCount = 0;//逻辑帧计数
     public static GF Instance;
 
@@ -19,6 +25,7 @@ public class GF : MonoBehaviour
     public static FlowManager flow;//流程管理器
     public static UIManager ui;//UI管理器
     public static PoolManager pool;//对象池管理器
+    public static GameObjectManager sgo;//场景游戏对象管理器
 
     #region 生命周期函数
 
@@ -56,9 +63,15 @@ public class GF : MonoBehaviour
         //创建对象池
         pool = new PoolManager();
 
-        //启动第一个流程
-        flow.StartFlow<ExampleFlow>();
+        //获取场景游戏对象管理器
+        sgo = GetComponent<GameObjectManager>();
 
+        //启动第一个流程
+        Type type = Type.GetType(startFlowName);
+        if (type != null)
+        {
+            flow.StartFlow(type);
+        }
     }
 
     void Start()
@@ -191,7 +204,7 @@ public class GF : MonoBehaviour
         {
             if (module is IModule imod)
             {
-                try { imod.OnDestroy(); }
+                try { imod.OnRemove(); }
                 catch (Exception e) { Debug.LogError($"[GF] 模块 {ifaceType.Name} OnDestroy 异常: {e}"); }
             }
 
@@ -217,7 +230,7 @@ public class GF : MonoBehaviour
         {
             if (snapshot[i] is IModule imod)
             {
-                try { imod.OnDestroy(); }
+                try { imod.OnRemove(); }
                 catch (Exception e) { Debug.LogError($"[GF] Destroy 异常: {e}"); }
             }
             DestroyModuleObject(snapshot[i]);
@@ -466,7 +479,7 @@ public class GF : MonoBehaviour
         // 逆序销毁（依赖方先销毁）
         for (int i = _sortedModules.Count - 1; i >= 0; i--)
         {
-            try { _sortedModules[i].OnDestroy(); }
+            try { _sortedModules[i].OnRemove(); }
             catch (Exception e) { Debug.LogError($"[GF] 模块 {_sortedModules[i].GetType().Name} OnDestroy 异常: {e}"); }
         }
     }

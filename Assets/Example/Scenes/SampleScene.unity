@@ -132,6 +132,7 @@ GameObject:
   m_Component:
   - component: {fileID: 513843778}
   - component: {fileID: 513843780}
+  - component: {fileID: 513843782}
   - component: {fileID: 513843781}
   m_Layer: 0
   m_Name: GameManager
@@ -182,6 +183,20 @@ MonoBehaviour:
   uiRoot: {fileID: 1259020634}
   cleanupTime: 300
   timer: 0
+--- !u!114 &513843782
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 513843776}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f18e621d5c07be4ea894a60fa1ec557, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  unitPrefab: {fileID: 170104998562891196, guid: 241484eaea268e54aa6b49dcf781e6c9, type: 3}
+  unitPoolPrefab: {fileID: 5498139849803209311, guid: c2b804761f87bac48981d13dcb226501, type: 3}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -318,8 +333,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d1844e8aec370814e8ff6d84666494f5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  unitPrefab: {fileID: 170104998562891196, guid: 241484eaea268e54aa6b49dcf781e6c9, type: 3}
-  unitPoolPrefab: {fileID: 5498139849803209311, guid: c2b804761f87bac48981d13dcb226501, type: 3}
 --- !u!1 &711977718
 GameObject:
   m_ObjectHideFlags: 0
@@ -470,6 +483,8 @@ MonoBehaviour:
   id: 
   independence: 0
   _text: {fileID: 711977720}
+  _sgoid: UnitHpPanel
+  _sceneName: SampleScene
 --- !u!1001 &774298312
 PrefabInstance:
   m_ObjectHideFlags: 0

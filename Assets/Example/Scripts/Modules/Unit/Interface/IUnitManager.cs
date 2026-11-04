@@ -25,11 +25,6 @@ namespace Conquer.Unit
         public Vector3 Move(long id);
 
         /// <summary>
-        /// 初始化
-        /// </summary>
-        public void Init();
-
-        /// <summary>
         /// 单位扣血
         /// </summary>
         /// <param name="id"></param>
@@ -58,11 +53,6 @@ namespace Conquer.Unit
         /// </summary>
         /// <param name="id"></param>
         public void UnRegister(long id);
-
-        /// <summary>
-        /// 随机生成单位
-        /// </summary>
-        public void SpawnRandomUnit();
 
     }
 }

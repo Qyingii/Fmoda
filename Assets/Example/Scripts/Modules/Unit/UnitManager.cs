@@ -20,12 +20,6 @@ namespace Conquer.Unit
         public Action OnHpChanged{get;set;}//血量变化时触发，UnitHpPanel 订阅此事件后刷新 UI
         private UnitDataCenter unitDataCenter => DataManager.Unit;//数据中心，用于存储战斗数据
 
-        // 单位预制体
-        public GameObject unitPrefab;
-
-        //具有对象池的单位预制体
-        public GameObject unitPoolPrefab;
-
         /// <summary>
         /// 注册数据
         /// </summary>
@@ -54,18 +48,6 @@ namespace Conquer.Unit
         #endregion
 
         #region 流程
-        //初始化
-        public void Init()
-        {
-            // 1. 派生单位
-            var go1 = GF.Spawn(unitPrefab, new Vector3(-1, -1, 0), Quaternion.identity);
-
-            // 2. 获取 Units
-            var unit1 = go1.GetComponent<Units>();
-
-            // 3. 写入 UnitDataCenter
-            unit1.unitId = Register(new UnitData { maxHp = 90, hp = 90, moveSpeed = 2 });
-        }
 
         //结束流程
         public void EndFlow()
@@ -97,12 +79,6 @@ namespace Conquer.Unit
         public Dictionary<long, UnitData> GetAllUnitData()
         {
             return unitDataCenter.GetAllData();
-        }
-
-        //随机派生单位
-        public void SpawnRandomUnit()
-        {
-            GF.Spawn(unitPoolPrefab, new Vector3(UnityEngine.Random.Range(-5, 5), UnityEngine.Random.Range(-5, 5), 0), Quaternion.identity);
         }
 
         #endregion

@@ -107,7 +107,7 @@ namespace FModa.Modding
             }
         }
 
-        public void OnDestroy()
+        public void OnRemove()
         {
             UnloadAllMods();
         }

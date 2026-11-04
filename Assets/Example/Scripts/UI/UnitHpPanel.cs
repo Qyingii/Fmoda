@@ -1,4 +1,5 @@
 ﻿using Conquer.Unit;
+using FModa.GameObjectManager;
 using FModa.InputSystem;
 using FModa.Multilingual;
 using TMPro;
@@ -11,8 +12,9 @@ using UnityEngine;
 ///   1. OnBind 中订阅单位模块的事件
 ///   2. OnUnbind 中取消订阅
 ///   3. OnRefresh 中做初始同步
+/// ISGO:用来演示如何获取到这个游戏对象
 /// </summary>
-public class UnitHpPanel : UIBase
+public class UnitHpPanel : UIBase,ISGO
 {
     [SerializeField] private TextMeshProUGUI _text;
 
@@ -20,6 +22,19 @@ public class UnitHpPanel : UIBase
     private IUnitManager unitManager;
     private IInputManager inputManager;
     private IMultilingualManager multilingualManager;
+
+    /// <summary>
+    /// 跨场景游戏对象id,用于被加载到指定的字段中，该值由用户手动填写，请确保每个场景内每个游戏对象唯一
+    /// </summary>
+    [SerializeField] private string _sgoid;
+
+    /// <summary>
+    /// 场景名称，用于标记该游戏对象应该在哪个场景中被加载，不写则默认加载
+    /// </summary>
+    [SerializeField] private string _sceneName;
+    public string SgoId { get => _sgoid;}
+    public string SceneName { get => _sceneName;}
+
 
     protected override void OnBind()
     {
@@ -50,7 +65,7 @@ public class UnitHpPanel : UIBase
         if (inputManager.KeyDown("Spawn"))
         {
             //随机位置派生unitPoolPrefab
-            unitManager.SpawnRandomUnit();
+            GF.Spawn(GF.sgo.unitPoolPrefab, new Vector3(UnityEngine.Random.Range(-5, 5), UnityEngine.Random.Range(-5, 5), 0), Quaternion.identity);
         }
 
         if (inputManager.KeyDown("EndFlow"))
@@ -61,9 +76,15 @@ public class UnitHpPanel : UIBase
 
     // ── 刷新显示 ──
 
-    private void RefreshAll()
+    public void RefreshAll()
     {
         if (_text == null) return;
+
+        //获取单位模块,由于OnBind()触发时机晚于GF的Awake()，因此这里需要手动获取
+        if(unitManager == null)
+            unitManager = GF.GetModule<UnitManager>();
+        if(multilingualManager == null)
+            multilingualManager = GF.GetModule<MultilingualManager>();
 
         var all = unitManager.GetAllUnitData();
         // "按下 Q 键扣血，按下W 键向前移动，按下E键打开测试UI，按下R键派生单位，按下空格键结束本流程\n";

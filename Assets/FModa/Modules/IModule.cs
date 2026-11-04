@@ -36,7 +36,7 @@ public interface IModule
     /// <summary>
     /// 销毁时调用
     /// </summary>
-    void OnDestroy(){}
+    void OnRemove(){}
 
     /// <summary>
     /// 应用退出时调用

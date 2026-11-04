@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using Conquer.Unit;
 using FModa.InputSystem;
 using FModa.Multilingual;
@@ -21,14 +19,25 @@ public class ExampleFlow : IFlow
         unitManager=GF.GetModule<UnitManager>();
         GF.CreateModule<InputManager>();
 
-        //初始化模块
-        unitManager.Init();
-
         //用事件来实现流程控制
         unitManager.OnFlowEnd += ()=>
         {
             GF.flow.SwitchFlow<EndFlow>(this);
         };
+
+        //初始化
+        // 1. 派生单位
+        var go1 = GF.Spawn(GF.sgo.unitPrefab, new Vector3(-1, -1, 0), Quaternion.identity);
+
+        // 2. 获取 Units
+        var unit1 = go1.GetComponent<Units>();
+
+        // 3. 写入 UnitDataCenter
+        unit1.unitId = unitManager.Register(new UnitData { maxHp = 90, hp = 90, moveSpeed = 2 });
+
+        //获取UnitHpPanel，触发一次界面更新
+        var unitHpPanel = GF.sgo.gameObjects["UnitHpPanel"].GetComponent<UnitHpPanel>();
+        unitHpPanel.RefreshAll();
     }
 
     public void Exit()

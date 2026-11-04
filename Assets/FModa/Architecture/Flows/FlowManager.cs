@@ -1,9 +1,28 @@
-
+using System;
 using UnityEngine;
 
 public class FlowManager
 {
     public IFlow CurrentFlow { get; private set; }//当前流程
+
+    /// <summary>
+    /// 开始流程
+    /// </summary>
+    /// <param name="flowType"></param>
+    public void StartFlow(Type flowType)
+    {
+        if (!typeof(IFlow).IsAssignableFrom(flowType))
+        {
+            Debug.LogError($"{flowType} 没有实现 IFlow");
+            return;
+        }
+
+        IFlow flow = Activator.CreateInstance(flowType) as IFlow;
+        flow.Enter();
+        CurrentFlow = flow;//记录当前流程
+        Debug.Log($"开始流程 {flowType.Name}"); 
+    }
+    
     /// <summary>
     /// 开始的第一个流程
     /// </summary>
