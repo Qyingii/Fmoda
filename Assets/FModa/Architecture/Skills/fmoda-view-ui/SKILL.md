@@ -27,26 +27,30 @@ using UnityEngine;
 
 public class Units : MonoBehaviour
 {
-    [SerializeField] private long unitId;
-    public UnitData unitData;
+    // id 由生成方（Flow）注入；-1 表示未注册。不参与 Inspector 序列化，
+    // 避免预制体复制、场景复制时把 id 写坏。
+    [SerializeField, HideInInspector] private long unitId = -1;
 
     private IUnitManager unitManager;
 
+    /// <summary>注册数据后由 Flow 调用，注入数据 id。</summary>
+    public void BindUnit(long id)
+    {
+        if (id > 0) unitId = id;
+    }
+
     private void Start()
     {
-        // 1. 数据为空时给默认值（示例做法；真实项目通常由生成方注入）
-        unitData ??= new UnitData { maxHp = 100, hp = 100, moveSpeed = 2 };
-
-        // 2. 获取模块：必须用具体类型
+        // 获取模块：必须用具体类型
         unitManager = GF.GetModule<UnitManager>();
-
-        // 3. 把数据注册进模块，拿回 id
-        unitId = unitManager.Register(unitData);
     }
 
     private void Update()
     {
-        // 4. 输入 → 模块，不在 Render 里改数据
+        // id 失效（未注入 / 已被删除 / 数据被清空）时不再调用模块
+        if (!unitManager.TryGetUnitData(unitId, out _)) return;
+
+        // 输入 → 模块，不在 Render 里改数据
         if (Input.GetKey(KeyCode.W))
             transform.Translate(unitManager.Move(unitId));
 
@@ -56,8 +60,9 @@ public class Units : MonoBehaviour
 
     private void OnDestroy()
     {
-        // 5. 生命周期对称：注册过就注销
-        unitManager.UnRegister(unitId);
+        // 注销也由视图发起，但要先确认 id 仍然有效（EndFlow/Clear 之后可能已经失效）
+        if (unitId > 0 && unitManager != null && unitManager.TryGetUnitData(unitId, out _))
+            unitManager.UnRegister(unitId);
     }
 }
 ```
@@ -65,10 +70,13 @@ public class Units : MonoBehaviour
 ### 规则
 
 - **只获取模块，不创建模块。** `GF.GetModule<UnitManager>()`；不要在 Render 里 `CreateModule`。
+- **数据注册优先由生成方负责。** Flow/生成器 `Register` 成功后通过 `BindUnit(id)` 之类的接口把 id 注入视图；视图只负责持有并在失效时停止调用模块。同一份数据不能有两个写入者。
+- **示例 `Units.cs` 的 `Start` 里保留了 `unitId == -1` 时的自注册兜底**，只服务于场景里静态摆放、没有生成方的单位；Flow 注入过 id 就不会触发。生产代码优先只保留 Flow 一个写入者，不要无条件自注册。
+- **id 只当不透明句柄。** 存储 id 是「数据中心 Code + 本地序号」的合成值（见 `DataCenterId`），不要解析、不要硬编码、不要和 `1`、`2` 这类小整数比较；需要显示时用模块暴露的 `ToLocalId(id)`。
 - **输入只做转发。** Render 可以轮询输入，但状态变化必须调用模块方法；不要在 Render 里直接改 `UnitData.hp`。
 - **不直接访问 `DataManager`。** 需要数据就通过模块的查询方法。
-- **View 的生命周期要成对。** `Start` 里注册，`OnDestroy` 里注销；订阅事件则 `OnEnable` 订阅、`OnDisable` 退订，或与模块生命周期严格对应。
-- **数据可能被外部删除。** `DataCenter.GetData(id)` 找不到时返回 `null` 并打警告。Render 如果继续用这个 id 调模块，模块内部可能空引用。模块应提供「是否还存在」的查询或删除事件；在拿到明确的删除通知前，Render 必须对返回值做空判断。
+- **订阅/退订成对。** 事件在 `OnEnable` 订阅、`OnDisable` 退订；注册/注销与模块生命周期严格对应，用命名方法。
+- **数据可能被外部删除。** 模块必须提供 `TryGetUnitData(id, out data)` 这类安全查询；Render 在拿到明确的删除通知前，每次调用模块前都要确认 id 仍然有效，否则 `EndFlow/Clear` 之后继续按键就会空引用。
 - **不要假设 `Start` 一定在 GF 初始化之后。** 场景中的 GF 与 Render 都是 `Awake` 阶段创建，`Start` 相对安全，但更稳妥的是在真正使用前取模块，并对 `null` 做处理。
 - **需要池化时继承 `Poolable`**，用 `GF.Spawn / GF.Despawn`，不要 `Instantiate / Destroy`。
 

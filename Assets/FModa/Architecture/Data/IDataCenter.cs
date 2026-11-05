@@ -29,8 +29,12 @@ using FModa.Data; // 仅供下方 <see cref="DataCenter{T}"/> 解析
 ///    }
 ///    </code>
 ///
-///    增删改查、自增 id、HasId 以及 OnDataAdded / OnDataRemoved / OnCleared
-///    三个生命周期事件都由基类提供，不用自己写。
+///    增删改查、合成 id（数据中心 Code + 本地序号）、TryGetData / HasId 都由基类提供。
+///    基类**没有** OnDataAdded / OnDataRemoved / OnCleared 事件；
+///    需要通知就在子类里显式定义事件，并在语义方法里广播。
+///
+///    Id 规则见 <see cref="DataCenterId"/>：Code 在 DataManager.DataCenterCodes 中占号，
+///    Code 0 表示未分区（旧行为）。只有 Id == -1 的新数据能 AddData。
 ///
 /// 2. 在 DataManager 中注册（懒加载属性，首次访问时自动创建）：
 ///

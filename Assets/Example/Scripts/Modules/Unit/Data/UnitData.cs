@@ -19,7 +19,12 @@ namespace Conquer.Unit
 
         public override IData Clone()
         {
-            throw new System.NotImplementedException();
+            return new UnitData
+            {
+                maxHp = maxHp,
+                hp = hp,
+                moveSpeed = moveSpeed,
+            };
         }
     }
 }

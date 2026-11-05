@@ -81,8 +81,8 @@ public class UnitHpPanel : UIBase
         foreach (var kv in all)
         {
             var data = kv.Value;
-            //$"序列号：{kv.Key}  血量：{data.hp} / {data.maxHp}  速度：{data.moveSpeed}\n";
-            result += multilingualManager.GetText("ui.unitHpPanel.unitInfo", kv.Key, data.hp, data.maxHp, data.moveSpeed) + '\n';
+            //存储 key 是「数据中心 Code + 本地 id」的合成 id，展示时取本地序号
+            result += multilingualManager.GetText("ui.unitHpPanel.unitInfo", unitManager.ToLocalId(kv.Key), data.hp, data.maxHp, data.moveSpeed) + '\n';
         }
 
         _text.text =pre + (string.IsNullOrEmpty(result) ? multilingualManager.GetText("ui.unitHpPanel.noUnit") : result.TrimEnd('\n'));

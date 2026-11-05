@@ -14,20 +14,20 @@ namespace FModa.Data
     ///   // 直接访问，按需自动创建
     ///   DataManager.Combat.SetHp(id, 50);
     ///
-    ///   // 新增一个数据中心只需加一个属性：
+    ///   // 新增一个数据中心：先在 DataCenterCodes 占号，再在这里加属性
     ///   private static InventoryDC _inventory;
-    ///   public static InventoryDC Inventory => _inventory ??= new InventoryDC();
+    ///   public static InventoryDC Inventory => _inventory ??= new InventoryDC(DataCenterCodes.Inventory);
     ///   </code>
     /// </summary>
     public static class DataManager
     {
         //单位数据中心
         private static UnitDataCenter _unit;
-        public static UnitDataCenter Unit => _unit ??= new UnitDataCenter();
+        public static UnitDataCenter Unit => _unit ??= new UnitDataCenter(DataCenterCodes.Unit);
 
         //多语言数据中心
         private static MultilingualDataCenter _multilingual;
-        public static MultilingualDataCenter Multilingual => _multilingual ??= new MultilingualDataCenter();
+        public static MultilingualDataCenter Multilingual => _multilingual ??= new MultilingualDataCenter(DataCenterCodes.Multilingual);
 
         // ── 预加载（可选）──
 
@@ -38,12 +38,27 @@ namespace FModa.Data
         public static void PreWarm()
         {
             // 例：战斗系统在游戏一开始就会用到
-            _unit = new UnitDataCenter();
-            _multilingual = new MultilingualDataCenter();
+            _unit = new UnitDataCenter(DataCenterCodes.Unit);
+            _multilingual = new MultilingualDataCenter(DataCenterCodes.Multilingual);
 
             // 后续加：
-            // _player = new PlayerDC();
+            // _player = new PlayerDC(DataCenterCodes.Player);
         }
+    }
+
+    /// <summary>
+    /// 数据中心 Code —— 显式、稳定、只增不改。
+    ///
+    /// 一个 Code 对应一种数据中心类型；一旦发布到存档或网络，号码不得复用、
+    /// 不得调整顺序，也不得换绑到另一种数据中心类型。
+    ///
+    /// 新增数据中心时先在这里占号，再在 DataManager 中注册属性。
+    /// 没有占号的数据中心使用 Code 0，id 不做跨中心隔离（与旧版本行为一致）。
+    /// </summary>
+    public static class DataCenterCodes
+    {
+        public const int Unit = 1;
+        public const int Multilingual = 2;
     }
 }
 

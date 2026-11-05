@@ -18,6 +18,14 @@ namespace Conquer.Unit
         public Action OnHpChanged{get;set;} //血量变化时触发，UnitHpPanel 订阅此事件后刷新 UI
 
         /// <summary>
+        /// 安全查询单位数据。id 失效、不属于单位数据中心或数据已被删除时返回 false。
+        /// </summary>
+        bool TryGetUnitData(long id, out UnitData data);
+
+        /// <summary>把合成 id 转成用于显示的本地序号。</summary>
+        long ToLocalId(long id);
+
+        /// <summary>
         /// 单位移动
         /// </summary>
         /// <param name="unit"></param>

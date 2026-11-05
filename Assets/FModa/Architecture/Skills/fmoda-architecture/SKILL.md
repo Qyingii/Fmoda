@@ -59,7 +59,8 @@ GF           →  Flow / UI / Pool / Module 注册表
 | Flow 管理 | `Assets/FModa/Architecture/Flows/FlowManager.cs` | `StartFlow / SwitchFlow`，切换时先调旧流程 `Exit()` |
 | Module 契约 | `Assets/FModa/Modules/IModule.cs` | `InterfaceType / Priority / OnAwake / OnStart / OnUpdate / OnLateUpdate / OnDestroy / OnApplicationQuit` |
 | 数据标记 | `Assets/FModa/Architecture/Data/IData.cs` | 空标记接口 |
-| 数据中心 | `Assets/FModa/Architecture/Data/DataCenter.cs`、`IDataCenter.cs` | 泛型 `Dictionary<long,T>` 容器、自增 id、增删改查 |
+| 数据中心 | `Assets/FModa/Architecture/Data/DataCenter.cs`、`IDataCenter.cs` | 泛型 `Dictionary<long,T>` 容器、合成 id（Code + 本地序号）、增删改查 |
+| id 布局 | `Assets/FModa/Architecture/Data/DataCenterId.cs` | 12 位数据中心 Code + 51 位本地 id、Code 占用校验、`Compose/Local/Center/Describe` |
 | 数据中心注册 | `Assets/FModa/Architecture/Data/DataManager.cs` | 静态懒加载属性，所有 DataCenter 的唯一入口 |
 | UI 基类 | `Assets/FModa/Architecture/UI/UIBase.cs` | `OnBind / OnUnbind / OnRefresh`、子 UI |
 | UI 管理 | `Assets/FModa/Architecture/UI/UIManager.cs` | `OpenUI / CloseUI`、复用、延迟销毁 |
@@ -80,8 +81,10 @@ GF           →  Flow / UI / Pool / Module 注册表
    - 读完后应该能回答：模块什么时候被创建？谁调用 `OnAwake`？逻辑帧多长？场景里的模块为什么不需要手写注册？
 3. `Assets/FModa/Modules/IModule.cs` 和 `Assets/FModa/Architecture/Flows/IFlow.cs`
    - 两个契约都很短，先看清默认实现，避免以为「没写方法就是没调用」。
-4. `Assets/FModa/Architecture/Data/DataCenter.cs` + `DataManager.cs`
+4. `Assets/FModa/Architecture/Data/DataCenter.cs` + `DataManager.cs` + `DataCenterId.cs`
    - 看清 `protected datas`、`protected id`、`GetData` 返回引用、`AddData` 自增 id。
+   - 存储 key 是「Code + 本地 id」的合成 long；Code 在 `DataManager.DataCenterCodes` 中分配，Code 0 等于旧行为。
+   - 只有 `Id == -1` 的数据能 `AddData`，离开中心后 Id 会失效为 -1；查询优先用 `TryGetData`。
    - 重点确认：**当前基类并没有 `OnDataAdded / OnDataRemoved / OnCleared` 事件**，不要照着 README 直接订阅一个不存在的事件。
 5. `Assets/FModa/Architecture/UI/UIBase.cs` + `UIManager.cs`
    - 重点看 `OnEnable / OnDisable / OnDestroy` 如何驱动 `OnBind / OnUnbind / OnRefresh`，以及关闭的 UI 为什么不会立刻销毁。
@@ -186,6 +189,8 @@ GF           →  Flow / UI / Pool / Module 注册表
 - 写 `GF.GetModule<IUnitManager>()`：业务接口不继承 `IModule`，编译不过；应写具体类型 `GF.GetModule<UnitManager>()`。
 - 用 lambda 订阅事件，却没有保存引用用于退订：`-=` 匹配不上。
 - 把 `DataManager.Unit` 缓存到字段：`DataManager.PreWarm()` 会整体替换实例，缓存变成孤儿。
+- 视图自己 `Register`，Flow 又 `Register` 一次：一个实体两条数据，id 对不上；注册只保留一个写入者。
+- 把数据中心 id 当小整数用（`if (id == 1)`、直接 `ToString` 展示）：id 是「Code + 本地序号」的合成值，展示要用 `ToLocalId`。
 - 在 `Assets/FModa/Architecture/` 里加业务代码：这里是框架层，业务模块放 `Assets/FModa/Modules/` 或游戏自己的目录。
 
 ---

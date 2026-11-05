@@ -111,6 +111,10 @@ namespace FModa.Inventory
 {
     public class InventoryDataCenter : DataCenter<InventoryData>, IDataCenter
     {
+        // Code 由 DataManager.DataCenterCodes 统一分配；无参构造等价于 Code 0（旧行为）
+        public InventoryDataCenter() { }
+        public InventoryDataCenter(int centerCode) : base(centerCode) { }
+
         /// <summary>容量变化时触发：(ownerId, newCapacity)</summary>
         public event Action<long, int> OnCapacityChanged;
 
@@ -151,6 +155,17 @@ namespace FModa.Inventory
 - `GetData` 返回的是**引用**，直接改字段不会触发任何事件。要通知，就在语义方法里改完再 `Invoke`。
 - 当前基类**没有** `OnDataAdded / OnDataRemoved / OnCleared` 事件（README 中提到的这三个事件在代码里不存在）。如果业务确实需要，在自己的 DataCenter 里显式定义并在 `AddData / RemoveData / Clear` 之后广播。
 - 数据中心只广播事实，不替视图做处置；视图该刷新还是该关闭，由模块决定。
+
+#### id 约定
+
+从 2026-11 起，`DataCenter<T>` 的存储 key 不再是一个裸自增数字，而是「数据中心 Code + 本地 id」合成的 `long`，位布局见 `Assets/FModa/Architecture/Data/DataCenterId.cs`：
+
+- Code 占高 12 位（0 ~ 4095），本地 id 占低 51 位；符号位恒为 0，`-1` 永远不是合法 id。
+- **每个数据中心必须在 `DataManager.DataCenterCodes` 占一个非零 Code**，并通过构造函数传入。Code 一旦发布到存档/网络就不得复用、不得改号。
+- Code 0 表示未分区，合成 id 等于本地 id，旧工程不传 Code 时行为完全不变。
+- 模块对外只传合成 id，不传本地 id；需要展示时用 `ToLocalId(id)`。
+- 查询用 `TryGetData(id, out data)`；`GetData` 收到别的中心的 id 会打警告并返回 `null`。
+- `AddData` 只接受 `Id == -1` 的新数据；`RemoveData / Clear` 会把数据 Id 重置为 `-1`；`UpdateData` 不接受属于别的 Id 的数据。这层保护由基类完成，子类不要绕过它去直接改 `datas` 的 key。
 
 ### 第 3 步：定义模块接口（对外契约）
 
@@ -312,12 +327,21 @@ Manager 的硬性规则：
 `Assets/FModa/Architecture/Data/DataManager.cs`：
 
 ```csharp
+public static class DataCenterCodes
+{
+    public const int Unit = 1;
+    public const int Multilingual = 2;
+    public const int Inventory = 3;   // 新增中心先在这里占号
+}
+
 private static InventoryDataCenter _inventory;
-public static InventoryDataCenter Inventory => _inventory ??= new InventoryDataCenter();
+public static InventoryDataCenter Inventory
+    => _inventory ??= new InventoryDataCenter(DataCenterCodes.Inventory);
 ```
 
 - 懒加载属性是唯一入口，所有模块通过 `DataManager.Inventory` 访问。
-- 需要在启动时就准备好的数据中心，在 `PreWarm()` 里 `new` 一次。
+- **所有构造点（懒加载属性 + `PreWarm()`）必须传同一个 Code**，不要一处传、一处不传，否则会造出两段互不相认的 id。
+- 需要在启动时就准备好的数据中心，在 `PreWarm()` 里 `new` 一次，同样带上 Code。
 - **模块里不要缓存 `DataManager.X` 到字段**：`PreWarm()` 会整体替换实例，旧引用会变成孤儿。
 - 新增数据中心必须在这里注册，否则别处无法正常获取。
 
@@ -425,6 +449,9 @@ public class InventoryFlow : IFlow
 - [ ] 所有类在同一个命名空间，没有新增全局命名空间类型
 - [ ] 数据类只含数据，实现 `IData`
 - [ ] DataCenter 继承 `DataCenter<T>`，没有重复实现字典
+- [ ] 数据中心已在 `DataManager.DataCenterCodes` 占号，懒加载与 `PreWarm` 使用同一个 Code
+- [ ] 对外查询用 `TryGetData`，id 失效时不继续操作
+- [ ] 数据只在 `Id == -1` 时入册，没有绕过基类直接改 `datas` 的 key
 - [ ] 需要通知的变化都有 typed 事件，事件命名 `OnXxx`
 - [ ] 接口只暴露视图/其他系统真正需要的能力
 - [ ] Manager 实现 `IModule`，`InterfaceType` 指向正确的业务接口
@@ -453,6 +480,9 @@ public class InventoryFlow : IFlow
 | lambda 订阅 | 无法退订，模块销毁后仍被回调 | 命名方法 + 成对 `-=` |
 | 缓存 `DataManager.X` | `PreWarm` 替换实例后引用失效 | 每次用属性取 |
 | 直接返回内部 `Dictionary` | 调用方绕过事件改数据 | 返回拷贝/只读视图/查询方法 |
+| 数据中心不传 Code / 一处传一处不传 | 造出两段互不相认的 id，跨中心串号 | 在 `DataCenterCodes` 占号，所有构造点统一传 |
+| 视图自己 `Register` 再被别人 `Register` | 一个实体两条数据，id 对不上 | 只保留一个写入者（通常是 Flow） |
+| 把 id 当小整数解析/硬编码 | Code 位生效后全部失效 | id 当不透明句柄，展示用 `ToLocalId` |
 | 模块里直接 `GF.GetModule<OtherManager>()` | 模块耦合，无法单独搬运 | 交给 Flow 编排 |
 | 用 Unity `Update()` 跑模块逻辑 | 绕开逻辑帧，顺序不可控 | `OnUpdate` |
 | 在 `Assets/FModa/Architecture/` 写业务 | 框架层被业务污染 | 放 `Assets/FModa/Modules/` |

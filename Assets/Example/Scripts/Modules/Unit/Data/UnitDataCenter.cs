@@ -7,6 +7,11 @@ namespace Conquer.Unit
 {
     public class UnitDataCenter : DataCenter<UnitData>,IDataCenter
     {
+        /// <summary>未分配 Code（等价于 Code 0），仅用于旧代码与测试。</summary>
+        public UnitDataCenter() { }
+
+        public UnitDataCenter(int centerCode) : base(centerCode) { }
+
         /// <summary>
         /// 更新单位数据
         /// </summary>
@@ -16,7 +21,7 @@ namespace Conquer.Unit
         /// <param name="moveSpeed"></param>
         public void UpdateUnitData(long unitId, int maxHp=-1, int hp=-1, float moveSpeed=-1)
         {
-            if(datas.TryGetValue(unitId, out var unitData))
+            if(TryGetData(unitId, out var unitData))
             {
                 if(maxHp != -1) unitData.maxHp = maxHp;
                 if(hp != -1) unitData.hp = hp;

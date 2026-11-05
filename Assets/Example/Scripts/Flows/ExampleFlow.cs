@@ -32,8 +32,10 @@ public class ExampleFlow : IFlow
         // 2. 获取 Units
         var unit1 = go1.GetComponent<Units>();
 
-        // 3. 写入 UnitDataCenter
-        unit1.unitId = unitManager.Register(new UnitData { maxHp = 90, hp = 90, moveSpeed = 2 });
+        // 3. 写入 UnitDataCenter，并把 id 注入视图（注册的唯一写入者是 Flow）
+        var unitId = unitManager.Register(new UnitData { maxHp = 90, hp = 90, moveSpeed = 2 });
+        if (unitId > 0)
+            unit1.BindUnit(unitId);
 
         //获取UnitHpPanel，触发一次界面更新
         var unitHpPanel = GF.sgo.gameObjects["UnitHpPanel"].GetComponent<UnitHpPanel>();

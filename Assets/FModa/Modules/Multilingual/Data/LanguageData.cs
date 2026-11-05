@@ -31,7 +31,18 @@ namespace FModa.Multilingual
 
         public override IData Clone()
         {
-            throw new NotImplementedException();
+            return new LanguageData
+            {
+                code = code,
+                displayName = displayName,
+                isBuiltin = isBuiltin,
+                entries = entries == null
+                    ? new Dictionary<string, string>(StringComparer.Ordinal)
+                    : new Dictionary<string, string>(entries, StringComparer.Ordinal),
+                customKeys = customKeys == null
+                    ? new HashSet<string>(StringComparer.Ordinal)
+                    : new HashSet<string>(customKeys, StringComparer.Ordinal),
+            };
         }
 
     }
