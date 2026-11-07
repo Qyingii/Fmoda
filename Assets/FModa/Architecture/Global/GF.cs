@@ -25,6 +25,8 @@ public class GF : MonoBehaviour
     
     private float _tickCount = 0;//逻辑帧计数
     public static GF Instance;
+    // 只有第一个 GF 是全局实例：后续场景里挂的 GF 只会销毁自己，不能动全局模块
+    private bool isOwner;
 
     //全局字段
     public static GameConfig config;//游戏配置
@@ -53,6 +55,7 @@ public class GF : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
+            isOwner =true;
             DontDestroyOnLoad(gameObject);
         }
         else
@@ -108,6 +111,7 @@ public class GF : MonoBehaviour
 
     private void Update()
     {
+        if (!isOwner) return;
         if (_tickCount >= tick)
         {
             DispatchModuleUpdate();
@@ -127,11 +131,13 @@ public class GF : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (!isOwner) return;
         DispatchModuleDestroy();
     }
 
     private void OnApplicationQuit()
     {
+        if (!isOwner) return;
         DispatchModuleQuit();
     }
 
