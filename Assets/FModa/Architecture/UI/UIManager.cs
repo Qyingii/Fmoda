@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class UIManager : MonoBehaviour
 {
@@ -24,6 +25,8 @@ public class UIManager : MonoBehaviour
 
         uis = new Dictionary<string, UIBase>();
         uiCloses = new Dictionary<string, UIBase>();
+
+        SceneManager.sceneLoaded += ScanScene; // 注册场景加载事件
     }
 
     void Update()
@@ -41,6 +44,50 @@ public class UIManager : MonoBehaviour
 
                 Debug.Log("清理关闭的UI中...");
             }
+        }
+    }
+
+    void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= ScanScene; // 注销场景加载事件
+    }
+
+    /// <summary>
+    /// 切换场景时自动获取场景中的UIRoot
+    /// </summary>
+    /// <param name="scene"></param>
+    /// <param name="mode"></param>
+    private void ScanScene(Scene scene, LoadSceneMode mode)
+    {
+        //处理UI
+        DestroyAllCloseUI();
+        //处理值为空的UI
+        var uisName=new List<string>();
+        foreach (var ui in uis)
+        {
+            if(ui.Value == null)
+                uisName.Add(ui.Key);
+        }
+        foreach (var ui in uisName)
+        {
+            uis.Remove(ui);
+        }
+
+
+
+        //处理根对象
+        if(uiRoot != null) return;
+
+        //获取场景中的所有游戏对象(包括未激活的)
+        GameObject[] allObjects = Resources.FindObjectsOfTypeAll<GameObject>();
+
+        //筛选出有标记的游戏对象
+        foreach (GameObject obj in allObjects)
+        {
+            obj.TryGetComponent<UIRoot>(out var ui);
+
+            if(ui != null)
+                uiRoot=obj.transform;
         }
     }
 
@@ -73,7 +120,8 @@ public class UIManager : MonoBehaviour
     {
         foreach (var ui in uiCloses.Values)
         {
-            Destroy(ui.gameObject);
+            if(ui != null)
+                Destroy(ui.gameObject);
         }
         uiCloses.Clear();
 

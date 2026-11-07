@@ -278,6 +278,7 @@ namespace FModa.Data
         {
             if (!TryGetData(Id, out var source))
             {
+                Debug.LogWarning($"未找到{typeof(T).Name}类型的数据，Id: {Id}, 无法克隆");
                 return -1;
             }
 
