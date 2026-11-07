@@ -10,6 +10,7 @@ using UnityEngine;
 /// <summary>
 /// 全局数据,这里写一些全局可用的字段和方法
 /// </summary>
+[DefaultExecutionOrder(-1000)]
 public class GF : MonoBehaviour
 {
     [Tooltip("逻辑帧间隔，模块层每隔多少秒执行一次")]
