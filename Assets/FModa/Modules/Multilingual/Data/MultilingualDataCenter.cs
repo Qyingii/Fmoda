@@ -14,8 +14,6 @@ namespace FModa.Multilingual
     /// </summary>
     public class MultilingualDataCenter : DataCenter<LanguageData>, IDataCenter
     {
-        /// <summary>未分配 Code（等价于 Code 0），仅用于旧代码与测试。</summary>
-        public MultilingualDataCenter() { }
 
         public MultilingualDataCenter(int centerCode) : base(centerCode) { }
 

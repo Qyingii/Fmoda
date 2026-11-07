@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Conquer.Unit;
 using FModa.InputSystem;
 using FModa.Multilingual;
@@ -6,7 +7,7 @@ using UnityEngine;
 public class ExampleFlow : IFlow
 {
     private IUnitManager unitManager;
-    public void Enter()
+    public void Enter(List<object> list=null)
     {
         Debug.Log("进入 ExampleFlow");
 
@@ -46,5 +47,10 @@ public class ExampleFlow : IFlow
     {
         GF.RemoveModule<UnitManager>();//移除模块
         Debug.Log("退出 ExampleFlow");
+    }
+
+    public void Update()
+    {
+        
     }
 }

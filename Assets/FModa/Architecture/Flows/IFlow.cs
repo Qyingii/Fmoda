@@ -1,20 +1,21 @@
+using System.Collections.Generic;
+
 public interface IFlow
 {
-    //流程进入时调用
-    public void Enter()
-    {
-        
-    }
 
-    //流程更新时调用
-    public void Update()
-    {
-        
-    }
+    /// <summary>
+    /// 流程进入时调用
+    /// </summary>
+    /// <param name="list"></param>
+    public void Enter(List<object> list=null);
 
-    //流程退出时调用
-    public void Exit()
-    {
-        
-    }
+    /// <summary>
+    /// 流程更新时调用
+    /// </summary>
+    public void Update();
+
+    /// <summary>
+    /// 流程退出时调用
+    /// </summary>
+    public void Exit();
 }

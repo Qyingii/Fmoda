@@ -57,6 +57,8 @@ namespace FModa.Data
     /// </summary>
     public static class DataCenterCodes
     {
+        //数据最终ID由数据中心ID+数据ID组成，通过代号可以知道一个ID是不是这个数据中心的数据
+        //代号从1开始，0代表独立，不进行Id审查
         public const int Unit = 1;
         public const int Multilingual = 2;
     }

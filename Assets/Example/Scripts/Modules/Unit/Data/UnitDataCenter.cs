@@ -7,9 +7,6 @@ namespace Conquer.Unit
 {
     public class UnitDataCenter : DataCenter<UnitData>,IDataCenter
     {
-        /// <summary>未分配 Code（等价于 Code 0），仅用于旧代码与测试。</summary>
-        public UnitDataCenter() { }
-
         public UnitDataCenter(int centerCode) : base(centerCode) { }
 
         /// <summary>

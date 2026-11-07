@@ -27,6 +27,11 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 - 模块的控制中心，所有模块都在这里进行创建、运算和销毁
 - 其他脚本通过`GF.xxxManager`来访问模块
 
+参数说明：
+- `Tick`：逻辑帧间隔，模块层每隔多少秒执行一次
+- `startFlowName`：启动游戏时自动启动的第一个流程
+- `testMode`：测试模式下会自动调用SimulatedData.Init()进行模拟数据初始化，主要用于单元测试
+
 需要将GF脚本挂在GameManager上
 ![alt text](image-4.png)
 

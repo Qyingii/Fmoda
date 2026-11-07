@@ -30,9 +30,6 @@ namespace FModa.Data
         /// <summary>本数据中心的数据中心 Code；0 表示未分区（旧行为）。</summary>
         public int CenterCode { get; }
 
-        /// <summary>未分配 Code 的构造方式，保持旧代码与测试可用（等价于 Code 0）。</summary>
-        public DataCenter() : this(0) { }
-
         public DataCenter(int centerCode)
         {
             if (!DataCenterId.IsValidCenterCode(centerCode))

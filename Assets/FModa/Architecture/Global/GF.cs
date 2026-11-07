@@ -4,6 +4,7 @@ using System.Linq;
 using FModa.Data;
 using FModa.GameObjectManager;
 using FModa.Pool;
+using FMode.Test;
 using UnityEngine;
 
 /// <summary>
@@ -16,6 +17,10 @@ public class GF : MonoBehaviour
 
     [Tooltip("启动流程，启动游戏时自动启动的第一个流程")]
     public string startFlowName = "ExampleFlow";//启动流程
+
+    [Tooltip("测试模式下会自动调用SimulatedData.Init()进行模拟数据初始化")]
+    public bool testMode = false;
+    private static SimulatedData simulatedData;
     
     private float _tickCount = 0;//逻辑帧计数
     public static GF Instance;
@@ -26,6 +31,19 @@ public class GF : MonoBehaviour
     public static UIManager ui;//UI管理器
     public static PoolManager pool;//对象池管理器
     public static GameObjectManager sgo;//场景游戏对象管理器
+    public static SimulatedData test
+    {
+        get
+        {
+            if(simulatedData == null)
+            {
+                Debug.LogWarning("未启动测试模式，请检查GF.testMode");
+                return null;
+            }
+
+            return simulatedData;
+        }
+    }
 
     #region 生命周期函数
 
@@ -66,6 +84,13 @@ public class GF : MonoBehaviour
         //获取场景游戏对象管理器
         sgo = GetComponent<GameObjectManager>();
         sgo.Init();
+
+        //测试模式
+        if(testMode)
+        {
+            simulatedData = new SimulatedData();
+            simulatedData.Init();
+        }
 
         //启动第一个流程
         Type type = Type.GetType(startFlowName);

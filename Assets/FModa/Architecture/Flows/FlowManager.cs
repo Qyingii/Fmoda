@@ -1,4 +1,6 @@
+
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class FlowManager
@@ -32,8 +34,7 @@ public class FlowManager
         var flow = new T();
         flow.Enter();
         CurrentFlow = flow;//记录当前流程
-
-        Debug.Log("当前流程：" + CurrentFlow.GetType().Name);
+        Debug.Log($"开始流程 {typeof(T).Name}");
     }
 
     /// <summary>
@@ -41,13 +42,14 @@ public class FlowManager
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="currentFlow"></param>
-    public void SwitchFlow<T>(IFlow currentFlow) where T : IFlow, new()
+    /// <param name="list">想传递给下一个流程的数据</param>
+    public void SwitchFlow<T>(IFlow currentFlow,List<object> list=null) where T : IFlow, new()
     {
         currentFlow.Exit();
         var flow = new T();
-        flow.Enter();
+        flow.Enter(list);
         CurrentFlow = flow;//记录当前流程
 
-        Debug.Log("当前流程：" + CurrentFlow.GetType().Name);
+        Debug.Log($"切换流程 {typeof(T).Name}");
     }
 }
