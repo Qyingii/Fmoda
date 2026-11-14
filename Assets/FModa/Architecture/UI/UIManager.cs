@@ -13,8 +13,26 @@ public class UIManager : MonoBehaviour
     [SerializeField] private float cleanupTime = 300f; // 清理时间
     [SerializeField] private float timer = 0f; // 计时器
 
-    private Dictionary<string, UIBase> Uis { get => uis== null?new Dictionary<string, UIBase>():uis; set => uis = value; }
-    private Dictionary<string, UIBase> UICloses { get => uiCloses == null ? new Dictionary<string, UIBase>() : uiCloses; set => uiCloses = value; }
+    private Dictionary<string, UIBase> Uis {
+        get
+        {
+            if(uis == null)
+            {
+                uis = new Dictionary<string, UIBase>();
+            }
+            return uis;
+        } set => uis = value;
+    }
+    private Dictionary<string, UIBase> UICloses { get
+        {
+            if (uiCloses == null)
+            {
+                uiCloses = new Dictionary<string, UIBase>();
+            }
+            return uiCloses;
+        }
+        set => uiCloses = value; 
+    }
 
     //UI清理事件
     public Action OnUIClear{get; set;}
@@ -26,8 +44,6 @@ public class UIManager : MonoBehaviour
             uiRoot = transform;
         }
 
-        uis = new Dictionary<string, UIBase>();
-        uiCloses = new Dictionary<string, UIBase>();
 
         SceneManager.sceneLoaded += ScanScene; // 注册场景加载事件
     }
@@ -66,7 +82,7 @@ public class UIManager : MonoBehaviour
         DestroyAllCloseUI();
         //处理值为空的UI
         var uisName=new List<string>();
-        foreach (var ui in uis)
+        foreach (var ui in Uis)
         {
             if(ui.Value == null)
                 uisName.Add(ui.Key);
