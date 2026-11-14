@@ -26,9 +26,9 @@ public class FlowManager
         }
 
         IFlow flow = Activator.CreateInstance(flowType) as IFlow;
+        Debug.Log($"开始流程 {flowType.Name}"); 
         flow.Enter();
         CurrentFlow = flow;//记录当前流程
-        Debug.Log($"开始流程 {flowType.Name}"); 
     }
     
     /// <summary>
@@ -38,9 +38,9 @@ public class FlowManager
     public void StartFlow<T>() where T : IFlow, new()
     {
         var flow = new T();
+        Debug.Log($"开始流程 {typeof(T).Name}");
         flow.Enter();
         CurrentFlow = flow;//记录当前流程
-        Debug.Log($"开始流程 {typeof(T).Name}");
     }
 
     /// <summary>
@@ -53,10 +53,10 @@ public class FlowManager
     {
         currentFlow.Exit();
         var flow = new T();
+        Debug.Log($"切换流程 {typeof(T).Name}");
         flow.Enter(list);
         CurrentFlow = flow;//记录当前流程
 
-        Debug.Log($"切换流程 {typeof(T).Name}");
     }
 
     /// <summary>
@@ -73,9 +73,9 @@ public class FlowManager
         CurrentFlow.Exit();
 
         IFlow flow = Activator.CreateInstance(flowType) as IFlow;
+        Debug.Log($"切换流程 {flowType.Name}");
         flow.Enter(list);
         CurrentFlow = flow;//记录当前流程
-        Debug.Log($"切换流程 {flowType.Name}");
     }
 
     /// <summary>

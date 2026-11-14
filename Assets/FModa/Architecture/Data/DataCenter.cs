@@ -66,7 +66,7 @@ namespace FModa.Data
         {
             if (!BelongsToCenter(Id))
             {
-                Data = default;
+                Data = null;
                 return false;
             }
 
@@ -85,7 +85,7 @@ namespace FModa.Data
                 Debug.LogWarning(
                     $"{typeof(T).Name} 收到不属于本中心的数据 Id: {Id}" +
                     $"（本中心 Code={CenterCode}，{DataCenterId.Describe(Id)}）");
-                return default;
+                return null;
             }
 
             if (TryGetData(Id, out var Data))
@@ -95,7 +95,7 @@ namespace FModa.Data
 
             Debug.LogWarning(
                 $"未找到{typeof(T).Name}类型的数据，Id: {Id}（{DataCenterId.Describe(Id)}）");
-            return default;
+            return null;
         }
 
         /// <summary>

@@ -13,6 +13,9 @@ public class UIManager : MonoBehaviour
     [SerializeField] private float cleanupTime = 300f; // 清理时间
     [SerializeField] private float timer = 0f; // 计时器
 
+    private Dictionary<string, UIBase> Uis { get => uis== null?new Dictionary<string, UIBase>():uis; set => uis = value; }
+    private Dictionary<string, UIBase> UICloses { get => uiCloses == null ? new Dictionary<string, UIBase>() : uiCloses; set => uiCloses = value; }
+
     //UI清理事件
     public Action OnUIClear{get; set;}
 
@@ -32,7 +35,7 @@ public class UIManager : MonoBehaviour
     void Update()
     {
         // 检查关闭的UI
-        if (uiCloses.Count > 0)
+        if (UICloses.Count > 0)
         {
             timer += Time.deltaTime; // 计时器增加
             if (timer >= cleanupTime)
@@ -70,7 +73,7 @@ public class UIManager : MonoBehaviour
         }
         foreach (var ui in uisName)
         {
-            uis.Remove(ui);
+            Uis.Remove(ui);
         }
 
 
@@ -101,7 +104,7 @@ public class UIManager : MonoBehaviour
     {
         uiIdCounter++;
         string uiId = uiid + "_" + uiIdCounter;
-        uis.Add(uiId, ui);
+        Uis.Add(uiId, ui);
 
         return uiId;
     }
@@ -118,12 +121,12 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void DestroyAllCloseUI()
     {
-        foreach (var ui in uiCloses.Values)
+        foreach (var ui in UICloses.Values)
         {
             if(ui != null)
                 Destroy(ui.gameObject);
         }
-        uiCloses.Clear();
+        UICloses.Clear();
 
         //通知有子UI的UI进行清理
         OnUIClear?.Invoke();
@@ -137,11 +140,11 @@ public class UIManager : MonoBehaviour
         //先销毁全部关闭的UI
         DestroyAllCloseUI();
 
-        foreach (var ui in uis.Values)
+        foreach (var ui in Uis.Values)
         {
             Destroy(ui.gameObject);
         }
-        uis.Clear();
+        Uis.Clear();
 
     }
 
@@ -153,16 +156,16 @@ public class UIManager : MonoBehaviour
     public UIBase OpenUI(string uiName,Vector3 pos=default,Quaternion quaternion=default,Transform parent = null)
     {
         //先在关闭的UI中查找
-        if(uiCloses.Count > 0)
+        if(UICloses.Count > 0)
         {
             string key="";
             UIBase value = null;
-            foreach (var ui in uiCloses)
+            foreach (var ui in UICloses)
             {
                 if (SplitUIID(ui.Key) == uiName)
                 {
                     ui.Value.gameObject.SetActive(true);
-                    uis.Add(ui.Key, ui.Value);
+                    Uis.Add(ui.Key, ui.Value);
                     key = ui.Key;
                     value = ui.Value;
                     break;
@@ -185,7 +188,7 @@ public class UIManager : MonoBehaviour
                     value.transform.SetParent(parent);
                 }
 
-                uiCloses.Remove(key);
+                UICloses.Remove(key);
                 return value;
             }
 
@@ -240,7 +243,7 @@ public class UIManager : MonoBehaviour
             uiIdCounter++;
             var newId = uiName + "_" + uiIdCounter;
             component.id = newId;
-            uis.Add(newId, component);
+            Uis.Add(newId, component);
         }
 
         return component;
@@ -274,10 +277,10 @@ public class UIManager : MonoBehaviour
     {
 
         // 出栈
-        if (uis.ContainsKey(id))
+        if (Uis.ContainsKey(id))
         {
-            UIBase ui = uis[id];
-            uis.Remove(id);
+            UIBase ui = Uis[id];
+            Uis.Remove(id);
 
             //销毁子UI
             ui.Disable();
@@ -289,7 +292,7 @@ public class UIManager : MonoBehaviour
             ui.gameObject.SetActive(false);
 
             // 入栈到关闭列表
-            uiCloses.Add(id, ui);
+            UICloses.Add(id, ui);
         }
         else
         {
