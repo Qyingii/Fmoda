@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
 {
@@ -216,6 +217,58 @@ public class UIManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 取一个真正能显示 UI 的根节点。
+    /// 序列化的 uiRoot 可能是被销毁/未配置/不在激活层级的对象：那样 UI 会被实例化到
+    /// 没有 Canvas 的场景根上，界面「创建成功但看不见」。这里每次创建前重新校验，
+    /// 找不到就回退到场景中的 UIRoot，再找不到就自动建一个全屏 Canvas。
+    /// </summary>
+    /// <summary>根节点必须存在、在激活层级里，并且属于一个启用的 Canvas，否则 UI 会看不见。</summary>
+    private static bool IsUsableRoot(Transform root)
+    {
+        if (root == null) return false;
+        if (!root.gameObject.activeInHierarchy) return false;
+
+        var canvas = root.GetComponentInParent<Canvas>();
+        return canvas != null && canvas.enabled;
+    }
+
+    private Transform ResolveUIRoot()
+    {
+        if (IsUsableRoot(uiRoot)) return uiRoot;
+
+        //切场景后旧引用可能已销毁；也可能是被禁用/未绑定的 Canvas，重新在场景里找
+        var roots = Resources.FindObjectsOfTypeAll<UIRoot>();
+        foreach (var root in roots)
+        {
+            if (root == null) continue;
+            if (!root.gameObject.scene.IsValid()) continue;       // 排除 Prefab 资产
+            if (!IsUsableRoot(root.transform)) continue;
+
+            uiRoot = root.transform;
+            Debug.LogWarning($"[UIManager] uiRoot 不可用，已重新绑定场景中的 UIRoot：{root.name}");
+            return uiRoot;
+        }
+
+        //场景里连 UIRoot 都没有：自动建一个，保证界面至少能显示出来
+        var go = new GameObject("UIRoot(自动)", typeof(RectTransform), typeof(Canvas),
+            typeof(CanvasScaler), typeof(GraphicRaycaster), typeof(UIRoot));
+
+        var canvas = go.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 0;
+
+        var scaler = go.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        scaler.matchWidthOrHeight = 0.5f;
+
+        DontDestroyOnLoad(go);
+        uiRoot = go.transform;
+        Debug.LogWarning("[UIManager] 场景里没有可用的 UIRoot，已自动创建 UIRoot(自动) 承载界面");
+        return uiRoot;
+    }
+
+    /// <summary>
     /// 创建UI界面
     /// </summary>
     /// <param name="uiName"></param>
@@ -231,7 +284,12 @@ public class UIManager : MonoBehaviour
         }
 
         //实例化UI
-        GameObject uiInstance = Instantiate(prefab,uiRoot);
+        GameObject uiInstance = Instantiate(prefab, ResolveUIRoot());
+
+        if (!uiInstance.activeInHierarchy)
+        {
+            Debug.LogError($"[UIManager] UI {uiName} 实例化后不在激活层级，父节点：{uiInstance.transform.parent?.name}，界面不会显示");
+        }
         if (pos != default)
         {
             uiInstance.transform.position = pos;

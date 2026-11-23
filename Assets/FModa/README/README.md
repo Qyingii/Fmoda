@@ -31,6 +31,8 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 - `Tick`：逻辑帧间隔，模块层每隔多少秒执行一次
 - `startFlowName`：启动游戏时自动启动的第一个流程
 - `testMode`：测试模式下会自动调用SimulatedData.Init()进行模拟数据初始化，主要用于单元测试
+- `debugMode`：是否开启调试模式，开启后会在控制台输出调试信息
+这里建议不直接使用UnityEngine.Debug来输出调试信息，而是使用GF的Debug类，使用debugMode或自定义条件来控制输出
 
 需要将GF脚本挂在GameManager上
 ![alt text](image-4.png)
@@ -138,12 +140,6 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 - 基类已经提供了增删改查、自增id、`HasId`和三个生命周期事件，子类只需要补自己的语义方法
 - 子类参考`Assets/Example/Scripts/Modules/Unit/Data/UnitDataCenter.cs`
 - 基类参考`Assets/FModa/Architecture/Data/DataCenter.cs`
-
-### 数据生命周期事件
-- 数据中心在**添加成功、移除成功、清空之前**会广播`OnDataAdded`/`OnDataRemoved`/`OnCleared`
-- 视图不一定知道自己的数据是被谁删掉的，靠这三个事件才能知道自己已经失效
-- 数据中心只广播事实，不替视图做处置；由模块转发成业务事件，视图只订阅模块
-- 订阅方参考`Assets/Example/Scripts/Renders/Unit/Units.cs`，转发方参考`Assets/Example/Scripts/Modules/Unit/UnitManager.cs`
 
 ### 数据管理器
 - 用于管理全局的动态数据，全局唯一

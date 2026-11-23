@@ -22,6 +22,9 @@ public class GF : MonoBehaviour
     [Tooltip("测试模式下会自动调用SimulatedData.Init()进行模拟数据初始化")]
     public bool testMode = false;
     private static SimulatedData simulatedData;
+
+    [Tooltip("是否开启调试模式，开启后会在控制台输出调试信息")]
+    public bool debugMode = true;
     
     private float _tickCount = 0;//逻辑帧计数
     public static GF Instance;
@@ -90,6 +93,9 @@ public class GF : MonoBehaviour
         sgo.Init();
 
         //测试模式
+#if !UNITY_EDITOR
+        testMode = false;
+#endif
         if(testMode)
         {
             simulatedData = new SimulatedData();
@@ -523,5 +529,40 @@ public class GF : MonoBehaviour
         SafeCall(_sortedModules, m => m.OnApplicationQuit());
     }
 
+    #endregion
+
+    #region Debug
+    /// <summary>
+    /// 打印正常日志
+    /// </summary>
+    /// <param name="message"></param>
+    public static void Log(string message)
+    {
+        if(!Instance.debugMode) return;
+
+        Debug.Log(message);
+    }
+
+    /// <summary>
+    /// 打印警告日志
+    /// </summary>
+    /// <param name="message"></param>
+    public static void LogWarning(string message)
+    {
+        if (!Instance.debugMode) return;
+
+        Debug.LogWarning(message);
+    }
+
+    /// <summary>
+    /// 打印错误日志
+    /// </summary>
+    /// <param name="message"></param>
+    public static void LogError(string message)
+    {
+        if (!Instance.debugMode) return;
+
+        Debug.LogError(message);
+    }
     #endregion
 }
