@@ -7,7 +7,7 @@ public interface IFlow
     /// 流程进入时调用
     /// </summary>
     /// <param name="list"></param>
-    public void Enter(List<object> list=null);
+    public void Enter(IFlow lastFlow,List<object> list=null);
 
     /// <summary>
     /// 流程更新时调用

@@ -128,6 +128,10 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 流程类继承接口`IFlow`
 流程的作用是使用`GF.GetModule<XXManager>();`启用模块、决定整个程序的执行顺序
 在流程结束切换流程，具体可参考`Assets/Example/Scripts/Flows/ExampleFlow.cs`
+对于进入流程方法，接口是这么写的
+`public void Enter(IFlow lastFlow,List<object> list=null);`
+- `lastFlow`：上一个流程，用于告知是从哪个流程过来的，可以针对上一个流程做处理，null为没有上一个流程（首次启动）
+- `list`：用于传递数据，上一个流程传递过来的任意类型的数据
 
 ## 数据（Data）
 

@@ -7,7 +7,7 @@ using UnityEngine;
 public class ExampleFlow : IFlow
 {
     private IUnitManager unitManager;
-    public void Enter(List<object> list=null)
+    public void Enter(IFlow lastFlow,List<object> list=null)
     {
         Debug.Log("进入 ExampleFlow");
 

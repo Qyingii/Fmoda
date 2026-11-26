@@ -11,6 +11,7 @@ public class FlowManager
 
     //记录切换流程数据
     Type type;
+    IFlow lastFlow;
     List<object> list;
 
     /// <summary>
@@ -27,7 +28,7 @@ public class FlowManager
 
         IFlow flow = Activator.CreateInstance(flowType) as IFlow;
         Debug.Log($"开始流程 {flowType.Name}"); 
-        flow.Enter();
+        flow.Enter(null);
         CurrentFlow = flow;//记录当前流程
     }
     
@@ -39,7 +40,7 @@ public class FlowManager
     {
         var flow = new T();
         Debug.Log($"开始流程 {typeof(T).Name}");
-        flow.Enter();
+        flow.Enter(null);
         CurrentFlow = flow;//记录当前流程
     }
 
@@ -54,7 +55,7 @@ public class FlowManager
         currentFlow.Exit();
         var flow = new T();
         Debug.Log($"切换流程 {typeof(T).Name}");
-        flow.Enter(list);
+        flow.Enter(currentFlow,list);
         CurrentFlow = flow;//记录当前流程
 
     }
@@ -74,7 +75,7 @@ public class FlowManager
 
         IFlow flow = Activator.CreateInstance(flowType) as IFlow;
         Debug.Log($"切换流程 {flowType.Name}");
-        flow.Enter(list);
+        flow.Enter(lastFlow,list);
         CurrentFlow = flow;//记录当前流程
     }
 
@@ -93,6 +94,7 @@ public class FlowManager
 
         type=typeof(T);
         this.list=list;
+        lastFlow = currentFlow;
     }
 
     /// <summary>
@@ -110,6 +112,7 @@ public class FlowManager
 
         type=typeof(T);
         this.list=list;
+        lastFlow = currentFlow;
     }
 
     /// <summary>
@@ -127,6 +130,7 @@ public class FlowManager
 
         type=typeof(T);
         this.list=list;
+        lastFlow = currentFlow;
     }
 
     /// <summary>
@@ -144,6 +148,7 @@ public class FlowManager
 
         type=typeof(T);
         this.list=list;
+        lastFlow = currentFlow;
     }
 
     //切换流程
@@ -154,6 +159,7 @@ public class FlowManager
         SwitchFlow(type, list);
         type = null;
         list = null;
+        lastFlow = null;
     }
 
     private void ScanScene(Scene scene, LoadSceneMode mode)
