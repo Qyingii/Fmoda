@@ -16,17 +16,22 @@ description: 在 FModa/ECMVC Unity 项目中新增或修改一个模块时使用
 
 ## 0. 先判断：真的需要新模块吗？
 
+**第一步永远是查内置模块**：`Assets/FModa/Modules/` 下已有 Input、Network、Hotfix、Modding、Multilingual 等可直接使用的模块，清单见 `Skills/README.md` 的「内置模块：先查再写」。需求命中就调用或扩展现有模块，不要另起一套。
+
 | 你的需求 | 是否需要新模块 |
 |---|---|
-| 有运行时状态，并且有规则决定状态怎么变 | **是**，建模块 + 数据中心 |
-| 只是静态配置、数值表、只读资源 | 否，用 `ScriptableObject` / `GameConfig` |
-| 纯算法、格式化、无状态工具 | 否，普通静态类 |
-| 只是一段特效、动画、跟随 | 否，写 Render |
-| 只是面板显示和按钮 | 否，写 UI，调用已有模块 |
+| 有运行时状态，并且有规则决定状态怎么变 | **是**，建模块 + 数据中心（先确认没有同类内置模块） |
+| 只是静态配置、数值表、只读资源、常量 | 否，**只放 `Assets/FModa/Architecture/Global/GameConfig.cs`**，通过 `GF.config` 读取；每个字段注释用途。不要新建 `ScriptableObject` 子类或常量类 |
+| 公用静态方法、纯算法、格式化、无状态工具 | 否，**只放 `Assets/FModa/Architecture/Global/PM.cs`**，统一 `PM.xxx(...)`；不要新建 `Utils/Helper/Common/Extensions` 类 |
+| 会被两个及以上模块/视图使用的枚举 | 否，**只放 `Assets/FModa/Architecture/Global/GameEnum.cs`**（`FModa.Enum`） |
+| 只是一段特效、动画、跟随 | 否，写 Render（普通 `MonoBehaviour`）；场景对象 / 预制体走 `GF.sgo` |
+| 只是面板显示和按钮 | 否，写 UI：**必须继承 `UIBase`（不能直接 `MonoBehaviour`）**，预制体放 `Resources/UI`，用 `GF.ui.OpenUI` 打开 |
 | 需要协调两个已有模块的先后顺序 | 否，写在 Flow 里 |
 | 需要被多个流程复用、有独立生命周期 | **是** |
 
 模块的最小判据：**它拥有或管理一份需要跨场景/跨视图共享的状态，并且这份状态的变化需要被广播。** 两者都不满足，就不要造模块。
+
+> 这三条全局归属规则是为了防止「到处新造类」。只在一个类内部使用的 `private const` / `private static` 可以留在类内；一旦第二个类要用，就上移到 `GameConfig` / `PM` / `GameEnum`。
 
 ---
 
@@ -63,6 +68,10 @@ Assets/FModa/Modules/Inventory/
 - **一个模块一个命名空间**，所有类都放进去。示例里的 `Conquer.Unit` 是游戏侧命名空间，可以照这个形式换成自己的项目名。
 - 不要往全局命名空间里新增类型。`GF`、`IModule`、`IFlow`、`UIBase`、`UIManager`、`DataCenter` 这些是历史遗留的全局类型，新代码应放进明确命名空间。
 - 框架层 `Assets/FModa/Architecture/` 只放可复用的框架代码；业务模块放 `Assets/FModa/Modules/` 或游戏自己的模块目录。
+- **静态数据只加在 `Global/GameConfig.cs`**：字段要有注释 / `[Tooltip]` 说明用途，运行时用 `GF.config.xxx` 读取。不要为某模块单独新建配置类或常量类。
+- **公用静态方法只加在 `Global/PM.cs`**（命名空间 `FModa`）：模块需要无状态工具方法时直接调用 `PM.xxx(...)`，不要新建 `Utils/Helper/Common/Extensions`。
+- **公用枚举只加在 `Global/GameEnum.cs`**（命名空间 `FModa.Enum`）：跨模块使用的枚举统一放这里，不要在各自 Data 里重复定义再写转换适配器。
+- **不要重复造内置模块**：动手前先看 `Assets/FModa/Modules/` 和 `Skills/README.md` 的清单；已有能力优先扩展，而不是新建一个同职责模块。
 
 ---
 
@@ -153,7 +162,7 @@ namespace FModa.Inventory
 - **不要重写一套字典**；基类已提供 `datas`、`id`、`AddData / GetData / UpdateData / RemoveData / Clear / HasId / HasData / GetId`。
 - 子类只补语义方法（`SetCapacity`、`TryAddItem`），并负责在需要时广播 **typed 事件**。
 - `GetData` 返回的是**引用**，直接改字段不会触发任何事件。要通知，就在语义方法里改完再 `Invoke`。
-- 当前基类**没有** `OnDataAdded / OnDataRemoved / OnCleared` 事件（README 中提到的这三个事件在代码里不存在）。如果业务确实需要，在自己的 DataCenter 里显式定义并在 `AddData / RemoveData / Clear` 之后广播。
+- 当前基类**没有** `OnDataAdded / OnDataRemoved / OnCleared` 事件（旧版文档提到的这三个事件在代码里不存在）。如果业务确实需要，在自己的 DataCenter 里显式定义并在 `AddData / RemoveData / Clear` 之后广播。
 - 数据中心只广播事实，不替视图做处置；视图该刷新还是该关闭，由模块决定。
 
 #### id 约定
@@ -243,7 +252,7 @@ namespace FModa.Inventory
             Data.OnCapacityChanged += HandleCapacityChanged;
         }
 
-        public void OnDestroy()
+        public void OnRemove()
         {
             Data.OnCapacityChanged -= HandleCapacityChanged;
             OnCapacityChanged = null;
@@ -290,14 +299,15 @@ public class UnitManager : MonoBehaviour, IModule, IUnitManager
     public GameObject unitPrefab; // Inspector 引用
 
     public void OnAwake() { /* 订阅 */ }
-    public void OnDestroy() { /* 退订，必须幂等 */ }
+    public void OnRemove() { /* 退订，必须幂等 */ }
+    // 注意：MonoBehaviour 还会有 Unity 的 OnDestroy 消息，两者别混
     // ...
 }
 ```
 
 Manager 的硬性规则：
 
-1. **生命周期方法必须 `public`**。C# 私有成员不参与接口映射；`void OnDestroy()` 默认 private，不会实现 `IModule.OnDestroy`，而接口有默认空实现，编译器不会报错，方法永远不会被 GF 调用。
+1. **生命周期方法必须 `public`，销毁钩子是 `OnRemove()`**。`IModule` 的方法是 `OnAwake / OnStart / OnUpdate / OnLateUpdate / OnRemove / OnApplicationQuit`，不是 `OnDestroy`。写成 `void OnDestroy()`（或 private）不会实现 `IModule.OnRemove`，接口又有空默认实现，编译器不报错，方法永远不会被 GF 调用；`OnDestroy` 只作为 Unity 消息存在。
 2. **订阅放在 `OnAwake`**。GF 与场景对象的 Unity `Awake` 顺序未定义；`OnAwake` 由 GF 主动调用，时序确定。
 3. **用命名方法订阅，不要用 lambda**。lambda 每次求值都是新委托，退订时 `-=` 匹配不上。
 4. **模块只访问自己的数据中心**。通过 `DataManager.X` 属性获取，不要缓存实例。
@@ -306,12 +316,17 @@ Manager 的硬性规则：
 7. **对外只暴露业务事件**。DataCenter 的事件在模块里转发，视图不要直接订阅 DataCenter。
 8. **可移植性**：模块内不要 `using` 其他模块的命名空间，不要引用 `Assets/Example`。
 9. **纯逻辑模块必须有无参构造**：`GF.CreateModule<T>()` / `GF.GetModule<T>()` 的自动创建路径依赖 `new()` 或 `Type.GetConstructor(Type.EmptyTypes)`。需要外部依赖时，通过 Flow 调用 `Init(...)` 注入，不要在构造函数里访问 GF。
+10. **日志走 `GF.Log / GF.LogWarning / GF.LogError`**：它们受 `GF.debugMode` 控制，发布版可以整体关闭；不要直接 `Debug.Log`。
 
-> ⚠️ **MonoBehaviour 模块的 `OnDestroy` 可能被调用两次**：`GF.RemoveModule<T>()` 会显式调一次 `IModule.OnDestroy()`，随后销毁 GameObject 时 Unity 还会发一次 `OnDestroy` 消息；退出播放时 `DispatchModuleDestroy()` 与 Unity 消息也可能重叠。清理逻辑必须**幂等**：
+> ⚠️ **MonoBehaviour 模块有两套销毁入口**：GF 调用的是接口方法 `IModule.OnRemove()`；随后销毁 GameObject 时 Unity 还会发一次 `OnDestroy` 消息，退出播放时 `DispatchModuleDestroy()` 也可能与 Unity 消息重叠。两处都要清理时，必须**幂等**，共用同一个清理方法：
 >
 > ```csharp
 > private bool _disposed;
-> public void OnDestroy()
+>
+> public void OnRemove() => Cleanup();     // IModule，GF 调用
+> private void OnDestroy() => Cleanup();   // Unity 消息
+>
+> private void Cleanup()
 > {
 >     if (_disposed) return;
 >     _disposed = true;
@@ -320,7 +335,7 @@ Manager 的硬性规则：
 > }
 > ```
 >
-> 如果不需要 Unity 消息，也可以显式实现 `void IModule.OnDestroy()` 并另写 private `void OnDestroy()`，但两处仍应共用同一个幂等清理方法。
+> 纯逻辑模块只实现 `OnRemove()` 即可，没有 Unity 消息。
 
 ### 第 5 步：在 `DataManager` 注册数据中心
 
@@ -348,13 +363,15 @@ public static InventoryDataCenter Inventory
 ### 第 6 步：在 Flow 中启动/销毁模块
 
 ```csharp
+using System.Collections.Generic;
 using FModa.Inventory;
 
 public class InventoryFlow : IFlow
 {
     private IInventoryManager inventory;
 
-    public void Enter()
+    // 签名固定：lastFlow 是上一流程（首次启动为 null），list 是上一流程传过来的数据
+    public void Enter(IFlow lastFlow, List<object> list = null)
     {
         // 1. 获取（不存在会自动创建并注册）
         inventory = GF.GetModule<InventoryManager>();
@@ -364,6 +381,11 @@ public class InventoryFlow : IFlow
 
         // 3. 用命名方法订阅流程结束
         inventory.OnClosed += HandleClosed;
+    }
+
+    public void Update()
+    {
+        // IFlow 没有默认实现，Update 必须写；无每帧逻辑就留空
     }
 
     public void Exit()
@@ -382,7 +404,10 @@ public class InventoryFlow : IFlow
 规则：
 
 - Flow 是**唯一**负责启动/销毁模块、决定模块顺序的地方。Render/UI 不创建模块。
-- `SwitchFlow<T>(this)` 会先调用当前流程的 `Exit()`，再 `Enter()` 新流程。
+- `IFlow` 没有默认实现，`Enter / Update / Exit` 三个方法都必须写；没有每帧逻辑就把 `Update` 留空。
+- `SwitchFlow<T>(this, list)` 会先调用当前流程的 `Exit()`，再以 `Enter(this, list)` 进入新流程。
+- 需要跨场景时用 `SwitchSceneAndFlow<T>(sceneName/index, this, list)` 或 `SwitchSceneAndFlowAsync`：它会等场景加载完成后延迟 1 秒再切换流程。
+- `Enter` 的 `lastFlow` 用于判断「从哪个流程过来」，`list` 用于传数据；两者都可为 `null`。
 - Flow 里订阅模块事件也要用命名方法，并在 `Exit()` 退订。示例 `ExampleFlow.cs` 用了 lambda 且未退订，不要照抄。
 - 一个流程负责一组模块的编排；模块之间的数据交换通过各自的接口在 Flow 里完成。
 - 全局同时只有一个 `GF.flow.CurrentFlow`，不要绕过 `FlowManager` 自己保存流程。
@@ -397,8 +422,9 @@ public class InventoryFlow : IFlow
 | `GF.CreateModule<T>()` | `module.InterfaceType` | 自动创建实例并触发 | 代码创建模块 |
 | `GF.RegisterModule<T>(instance)` | `typeof(T)` | 触发 | 非场景实例；注意 key 与上面不同 |
 | `GF.GetModule<T>()` | 通过「具体类型 → 接口」反查 | 不存在时自动创建 | 获取模块的唯一写法 |
-| `GF.RemoveModule<T>()` | 通过反查 | 触发 `OnDestroy`，销毁 GameObject | Flow 退出时清理 |
-| `GF.ClearAllModules()` | 全部 | 逆序触发 `OnDestroy` | 切场景 |
+| `GF.RemoveModule<T>()` | 通过反查 | 触发 `IModule.OnRemove()`，销毁 GameObject | Flow 退出时清理 |
+| `GF.ClearAllModules()` | 全部 | 逆序触发 `IModule.OnRemove()` | 切场景 |
+| 退出播放 / 场景卸载 | 全部 | `DispatchModuleDestroy()` 逆序触发 `IModule.OnRemove()` | 自动 |
 
 必须记住的三条：
 
@@ -455,8 +481,12 @@ public class InventoryFlow : IFlow
 - [ ] 需要通知的变化都有 typed 事件，事件命名 `OnXxx`
 - [ ] 接口只暴露视图/其他系统真正需要的能力
 - [ ] Manager 实现 `IModule`，`InterfaceType` 指向正确的业务接口
-- [ ] 生命周期方法都是 `public`，清理逻辑幂等
-- [ ] 订阅在 `OnAwake`，用命名方法，`OnDestroy` 成对退订
+- [ ] 生命周期方法都是 `public`，销毁钩子写的是 `OnRemove()`（不是 `OnDestroy`）
+- [ ] 订阅在 `OnAwake`，用命名方法，在 `OnRemove()` 成对退订；清理逻辑幂等
+- [ ] 动手前已检查 `Assets/FModa/Modules`，没有重复实现已有内置模块
+- [ ] 静态数据只加在 `Global/GameConfig.cs`，每个字段注释了用途
+- [ ] 公用静态方法只加在 `Global/PM.cs`
+- [ ] 公用枚举只加在 `Global/GameEnum.cs`
 - [ ] 模块内只通过 `DataManager.X` 属性访问数据中心，没有缓存
 - [ ] 模块不引用其他模块的具体类
 - [ ] DataManager 中已注册懒加载属性
@@ -475,7 +505,7 @@ public class InventoryFlow : IFlow
 | 在 Render/UI 里 `new XxxManager()` | 模块不受 GF 管理，生命周期全失效 | `GF.GetModule<XxxManager>()` |
 | `GF.GetModule<IInventoryManager>()` | 泛型约束不满足，编译失败 | 用具体类型 |
 | 场景模块 + 手写 `RegisterModule` | 同一模块两条记录，`OnAwake` 跑两遍 | 只保留自动注册 |
-| private `OnDestroy()` | `IModule.OnDestroy` 不被调用 | 写成 public，并做幂等 |
+| 把 `OnDestroy()` 当成 `IModule` 销毁钩子 | GF 只调用 `OnRemove()`，接口又是空默认实现，清理永远不会执行 | 写 `public void OnRemove()`；Unity 的 `OnDestroy` 另行处理，共用幂等清理 |
 | 在 Unity `Awake` 里订阅数据中心 | 时序未定义，可能订阅到未初始化的模块 | 移到 `OnAwake` |
 | lambda 订阅 | 无法退订，模块销毁后仍被回调 | 命名方法 + 成对 `-=` |
 | 缓存 `DataManager.X` | `PreWarm` 替换实例后引用失效 | 每次用属性取 |
@@ -487,3 +517,7 @@ public class InventoryFlow : IFlow
 | 用 Unity `Update()` 跑模块逻辑 | 绕开逻辑帧，顺序不可控 | `OnUpdate` |
 | 在 `Assets/FModa/Architecture/` 写业务 | 框架层被业务污染 | 放 `Assets/FModa/Modules/` |
 | 数据中心里写业务规则 | 数据和逻辑耦合 | 语义只做校验/存储，规则放模块 |
+| 新建 `Utils` / `Helper` / `Common` / `Extensions` | 工具类遍地，重复实现 | 公用静态方法放 `Global/PM.cs` |
+| 新建 `ScriptableObject` 配置类 / 常量类 | 配置分裂，AI 到处造类 | 静态数据只加 `Global/GameConfig.cs`，字段注释用途 |
+| 在模块 Data 里重复定义跨模块枚举 | 同语义多份枚举，需要转换适配器 | 公用枚举放 `Global/GameEnum.cs` |
+| 不查 `Assets/FModa/Modules` 就新建模块 | 重复造内置模块，维护两套 | 先看清单，有就调用或扩展 |

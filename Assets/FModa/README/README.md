@@ -38,15 +38,20 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 ![alt text](image-4.png)
 
 ### GameConfig
-- 用于存放全局配置，如分辨率、帧率等
+- **所有静态数据的唯一位置**：全局配置、常量、只读表、默认值都放这里，如分辨率、帧率等
 - 具体可以参考`Assets/FModa/Architecture/Global/GameConfig.cs`，实例放在`Assets/Resources/GameConfig.asset`
+- 每个字段必须用注释 / `[Tooltip]` 写明用途，运行时通过 `GF.config.xxx` 读取
+- 不要再新建配置类、常量类或 `public static` 数据类
 
 ### 公共枚举（GameEnum）
-- 用于定义公共枚举，以消除模块间单独定义枚举而造成的需要二次转换的问题
-- 所有的数据都可以获取公共枚举
+- **所有公用枚举的唯一位置**：定义在 `Assets/FModa/Architecture/Global/GameEnum.cs`（`FModa.Enum`）
+- 用于消除模块间单独定义枚举而造成的需要二次转换的问题
+- 不要在各自模块的 Data 里重复定义同一语义的枚举
 
 ### 公共方法（PM）
-- 公共方法，你可以将需要多个流程或渲染层同用的方法都写在这里
+- **所有公用静态方法的唯一位置**：`Assets/FModa/Architecture/Global/PM.cs`，统一写成 `PM.xxx(...)`
+- 需要多个流程、模块或渲染层同用的无状态方法都写在这里
+- 不要再新建 `Utils` / `Helper` / `Common` / `Extensions` 之类的静态工具类
 
 ## 模块（Module）
 模块内部高内聚，用命名空间分开，写一个接口暴露所有这个模块可用属性和方法，模块需要做到从这个项目移动到另一个项目完全不会报错
@@ -65,29 +70,40 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 模块是中枢，渲染器、UI都必须通过模块来获取数据，而不能单独访问数据中心。可以写`Init()`让flow调用来实现初始化。
 例子：`Assets/Example/Scripts/Modules/Unit/UnitManager.cs`
 
-> ⚠️ `IModule`的生命周期方法必须写成`public`。私有成员不参与接口映射，写`void OnDestroy()`（默认private）不会实现`IModule.OnDestroy`，而接口有默认空实现，编译器**不会报错**，方法永远调不到。
+> ⚠️ `IModule`的生命周期方法必须写成`public`，销毁钩子是 **`OnRemove()`** 而不是`OnDestroy()`。私有不参与接口映射，写成`void OnDestroy()`不会实现`IModule.OnRemove`，而接口有默认空实现，编译器**不会报错**，方法永远调不到；`OnDestroy`只作为Unity消息存在。
 >
 > 订阅数据中心的事件请放在`OnAwake`里，不要放在Unity的`Awake()`消息里——Unity的`Awake()`和`GF.Awake()`的相对顺序是未定义的，而`OnAwake`由GF主动调用，时序确定。
 >
-> 订阅用命名方法，不要用lambda：lambda每次求值都是新委托，退订时`-=`匹配不上。
+> 订阅用命名方法，不要用lambda：lambda每次求值都是新委托，退订时`-=`匹配不上。清理逻辑要幂等，因为MonoBehaviour模块的`OnRemove()`和Unity的`OnDestroy()`可能都会走到。
 
 ### 启动
 由流程来启动模块，主要使用订阅发布模式
 ``` csharp
-    public void Enter()
+    // lastFlow：上一流程（首次启动为 null）；list：上一流程传来的数据
+    public void Enter(IFlow lastFlow, List<object> list = null)
     {
-        Debug.Log("进入 ExampleFlow");
+        GF.Log("进入 ExampleFlow");
         //激活模块
-        RAManager=GF.GetModule<UnitManager>();
-        //订阅模块事件
-        RAManager.OnFlowEnd += ()=>
-        {
-            GF.flowManager.SwitchFlow<EndFlow>(this);
-        };
+        unitManager = GF.GetModule<UnitManager>();
+        //订阅模块事件：用命名方法，便于退订
+        unitManager.OnFlowEnd += HandleFlowEnd;
+    }
+
+    private void HandleFlowEnd()
+    {
+        GF.flow.SwitchFlow<EndFlow>(this);
+    }
+
+    public void Exit()
+    {
+        unitManager.OnFlowEnd -= HandleFlowEnd;
     }
 ```
 
 ### 内置模块
+> 实现新功能前先检查这里有没有现成能力，优先调用或扩展现有模块，避免重复造轮子。
+> 完整清单（含形态与入口）见 `Assets/FModa/Architecture/Skills/README.md`。
+
 #### Debug模块
 位置：`Assets/FModa/Modules/Debug`
 用途：用于在Game中查看Debug信息
@@ -112,6 +128,10 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 位置：`Assets/FModa/Modules/Pathfinding`
 用途：用于单位寻路，使用的是开源的NavMeshPlus
 
+#### 模组模块
+位置：`Assets/FModa/Modules/Modding`
+用途：基于XLua的轻量模组系统，可从项目根目录`Mods/`加载模组
+
 
 ## 流程（Flow）
 ### 启动
@@ -120,7 +140,7 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
     void Awake()
     {
         //启动第一个流程,这里指定启动ExampleFlow
-        flowManager.StartFlow<ExampleFlow>();
+        GF.flow.StartFlow<ExampleFlow>();
     }
 ```
 
@@ -141,7 +161,7 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 
 ### 数据中心（DataCenter）
 - 用于保存和管理指定类型的数据，继承泛型基类`DataCenter<T>`
-- 基类已经提供了增删改查、自增id、`HasId`和三个生命周期事件，子类只需要补自己的语义方法
+- 基类已经提供了增删改查、自增id、`HasId` 等能力（**没有** `OnDataAdded / OnDataRemoved / OnCleared` 事件），子类只需要补自己的语义方法
 - 子类参考`Assets/Example/Scripts/Modules/Unit/Data/UnitDataCenter.cs`
 - 基类参考`Assets/FModa/Architecture/Data/DataCenter.cs`
 
@@ -178,7 +198,8 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 ![alt text](image-11.png)
 
 ## UI
-- 和渲染器大致类似，但是继承`UIBase`
+- UI 面板**必须继承`UIBase`**，不能直接继承`MonoBehaviour`；`UIManager` 只认`UIBase`组件，否则`OpenUI`会报错并返回`null`
+- 预制体放在`Assets/Resources/UI/`，通过`GF.ui.OpenUI("预制体名")`打开；不要手动`Instantiate`或自己注册
 - 放在UI上
 - 具体可以参考`Assets/Example/Scripts/UI/UnitHpPanel.cs`
 
@@ -189,7 +210,7 @@ GF是所有层通用的，所有层都可以调用GF，但是不要在GF中调�
 
 - 将所有需要生成的UI预制体放在`Assets/Resources/UI`下
 ![alt text](image-3.png)
-- 通过`GF.uiManager.OpenUI("BlankPanel")`即可动态生成UI
+- 通过`GF.ui.OpenUI("BlankPanel")`即可动态生成UI
 - 你可以通过`UIBase.OpenSubUI("RedPanel")`来动态生成子UI
 - 关闭的UI不会立刻销毁，会先进关闭列表，超过清理时间才真正销毁；下次打开同名UI会复用
 - 勾选`independence`的UI不通过`UIManager`管理
@@ -357,10 +378,15 @@ using UnityEngine;
 public class TestFlow : IFlow
 {
     private TestManager test;
-    public void Enter()
+    public void Enter(IFlow lastFlow, List<object> list = null)
     {
-        Debug.Log("进入 TestFlow");
+        GF.Log("进入 TestFlow");
         test = GF.CreateModule<TestManager>();
+    }
+
+    public void Update()
+    {
+        // IFlow 的三个方法都没有默认实现，Update 必须写
     }
 
     public void Exit()

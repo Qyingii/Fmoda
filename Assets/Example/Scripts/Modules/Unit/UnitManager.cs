@@ -20,7 +20,7 @@ namespace Conquer.Unit
         public Action OnHpChanged{get;set;}//血量变化时触发，UnitHpPanel 订阅此事件后刷新 UI
         private UnitDataCenter unitDataCenter => DataManager.Unit;//数据中心，用于存储战斗数据
 
-        //防止 OnDestroy 被 GF 与 Unity 各调用一次
+        //防止 OnRemove（IModule 钩子）与 OnDestroy（Unity 消息）各清理一次
         private bool _destroyed;
 
         /// <summary>
@@ -56,7 +56,13 @@ namespace Conquer.Unit
         }
 
 #region 生命周期函数
-        public void OnDestroy()
+        /// <summary>IModule 的销毁钩子，GF 调用这个。</summary>
+        public void OnRemove() => Cleanup();
+
+        /// <summary>Unity 销毁消息，销毁 GameObject 时触发。</summary>
+        private void OnDestroy() => Cleanup();
+
+        private void Cleanup()
         {
             if (_destroyed) return;
             _destroyed = true;

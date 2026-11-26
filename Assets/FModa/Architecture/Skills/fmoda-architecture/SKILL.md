@@ -41,7 +41,7 @@ GF           →  Flow / UI / Pool / Module 注册表
 - `Data → 任何逻辑`：数据结构只存字段，不持有 MonoBehaviour、不查数据库、不调用模块。
 - `Flow → UI 细节`：Flow 只决定「启动谁、何时切换」，不操作具体控件。
 
-三条设计原则（来自 `Assets/Example/README/README.md`）：
+三条设计原则（来自 `Assets/FModa/README/README.md`）：
 
 1. **模块解耦**：模块可以整体搬到另一个项目而不报错。
 2. **顺序可控**：启动、更新、销毁的顺序由 GF / Flow / Priority 显式决定，不依赖 Unity 消息顺序。
@@ -53,11 +53,13 @@ GF           →  Flow / UI / Pool / Module 注册表
 
 | 概念 | 位置 | 职责 |
 |---|---|---|
-| GF | `Assets/FModa/Architecture/Global/GF.cs` | 单例、逻辑帧、模块注册/获取/移除、场景模块自动注册、`Spawn/Despawn` |
-| GameConfig | `Assets/FModa/Architecture/Global/GameConfig.cs` | 全局配置，实例在 `Assets/Resources/GameConfig.asset` |
-| Flow 契约 | `Assets/FModa/Architecture/Flows/IFlow.cs` | `Enter / Update / Exit`，均有默认空实现 |
-| Flow 管理 | `Assets/FModa/Architecture/Flows/FlowManager.cs` | `StartFlow / SwitchFlow`，切换时先调旧流程 `Exit()` |
-| Module 契约 | `Assets/FModa/Modules/IModule.cs` | `InterfaceType / Priority / OnAwake / OnStart / OnUpdate / OnLateUpdate / OnDestroy / OnApplicationQuit` |
+| GF | `Assets/FModa/Architecture/Global/GF.cs` | 单例、逻辑帧、模块注册/获取/移除、场景模块自动注册、`Spawn/Despawn`、`Log/LogWarning/LogError`（受 `debugMode` 控制） |
+| GameConfig | `Assets/FModa/Architecture/Global/GameConfig.cs` | **全局静态数据的唯一位置**（配置、常量、只读表）；实例在 `Assets/Resources/GameConfig.asset`，通过 `GF.config` 读取，每个字段必须注释用途 |
+| PM | `Assets/FModa/Architecture/Global/PM.cs` | **公用静态方法的唯一位置**，命名空间 `FModa`，统一 `PM.xxx(...)` |
+| GameEnum | `Assets/FModa/Architecture/Global/GameEnum.cs` | **公用枚举的唯一位置**，命名空间 `FModa.Enum` |
+| Flow 契约 | `Assets/FModa/Architecture/Flows/IFlow.cs` | `Enter(IFlow lastFlow, List<object> list = null) / Update / Exit`，三个方法都**没有默认实现**，必须写全 |
+| Flow 管理 | `Assets/FModa/Architecture/Flows/FlowManager.cs` | `StartFlow / SwitchFlow / SwitchSceneAndFlow / SwitchSceneAndFlowAsync`；切换时先调旧流程 `Exit()`，`Enter` 收到上一流程 |
+| Module 契约 | `Assets/FModa/Modules/IModule.cs` | `InterfaceType / Priority / OnAwake / OnStart / OnUpdate / OnLateUpdate / OnRemove / OnApplicationQuit`；接口方法都有空默认实现，其中**销毁钩子是 `OnRemove`，不是 `OnDestroy`** |
 | 数据标记 | `Assets/FModa/Architecture/Data/IData.cs` | 空标记接口 |
 | 数据中心 | `Assets/FModa/Architecture/Data/DataCenter.cs`、`IDataCenter.cs` | 泛型 `Dictionary<long,T>` 容器、合成 id（Code + 本地序号）、增删改查 |
 | id 布局 | `Assets/FModa/Architecture/Data/DataCenterId.cs` | 12 位数据中心 Code + 51 位本地 id、Code 占用校验、`Compose/Local/Center/Describe` |
@@ -65,8 +67,11 @@ GF           →  Flow / UI / Pool / Module 注册表
 | UI 基类 | `Assets/FModa/Architecture/UI/UIBase.cs` | `OnBind / OnUnbind / OnRefresh`、子 UI |
 | UI 管理 | `Assets/FModa/Architecture/UI/UIManager.cs` | `OpenUI / CloseUI`、复用、延迟销毁 |
 | 对象池 | `Assets/FModa/Architecture/Renders/Poolable.cs`、`PoolManager.cs` | `GF.Spawn / GF.Despawn` 的底层 |
-| 内置模块 | `Assets/FModa/Modules/{Input,Network,Modding,Hotfix,Multilingual}/` | 可参考的标准模块结构 |
-| 示例纵切 | `Assets/Example/Scripts/` | Unit 模块、Flow、Render、UI 的完整参考实现 |
+| 场景对象管理 | `Assets/FModa/Architecture/Renders/GameObjectManager.cs`、`Sgo.cs`、`ISGO.cs` | `GF.sgo`：预制体引用与场景对象按 ID 查询；场景对象挂 `Sgo`（或实现 `ISGO`），和 GF 挂在同一 GameObject |
+| 内置模块 | `Assets/FModa/Modules/{Input,Network,Hotfix,Modding,Multilingual,Debug,Pathfinding}/` | **先复用、再考虑新建**；清单和用途见 `Skills/README.md` 的「内置模块：先查再写」 |
+| 示例纵切 | `Assets/Example/Scripts/` | Unit 模块、Flow、Render、UI 的完整参考实现（教学示例，不是内置服务） |
+
+> 新增任何类型前，先确认 `Assets/FModa/Modules/` 没有现成能力。静态数据 / 静态方法 / 公用枚举分别只能放进 `GameConfig.cs` / `PM.cs` / `GameEnum.cs`，这是硬约束，详见 `Skills/README.md`。
 
 ---
 
@@ -74,18 +79,19 @@ GF           →  Flow / UI / Pool / Module 注册表
 
 不要从 `Assets/Example` 随便点开一个文件开始读。按下面的顺序，先建立骨架，再看血肉。
 
-1. `Assets/Example/README/README.md`
-   - 读设计意图和术语。**只信结构，不轻信成员名**，里面有已知的过期写法（见第 5 节）。
+1. `Assets/FModa/README/README.md`
+   - 读设计意图和术语。**只信结构，不轻信成员名**，里面有已知的过期写法（见第 5 节）。旧的 `Assets/Example/README/README.md` 已移动到此处。
 2. `Assets/FModa/Architecture/Global/GF.cs`
    - 重点看 `Awake()` 的初始化顺序、`Update()` 的逻辑帧派发、`RegisterModule / CreateModule / GetModule / RemoveModule`、`AutoRegisterSceneModules()`。
    - 读完后应该能回答：模块什么时候被创建？谁调用 `OnAwake`？逻辑帧多长？场景里的模块为什么不需要手写注册？
 3. `Assets/FModa/Modules/IModule.cs` 和 `Assets/FModa/Architecture/Flows/IFlow.cs`
-   - 两个契约都很短，先看清默认实现，避免以为「没写方法就是没调用」。
+   - `IModule` 的每个方法都有空默认实现（注意销毁钩子是 `OnRemove`）；`IFlow` 的 `Enter / Update / Exit` **没有**默认实现，必须全部写出来。
+   - 看清签名：`IFlow.Enter(IFlow lastFlow, List<object> list = null)`，第一个参数是上一流程，首次启动为 `null`。
 4. `Assets/FModa/Architecture/Data/DataCenter.cs` + `DataManager.cs` + `DataCenterId.cs`
    - 看清 `protected datas`、`protected id`、`GetData` 返回引用、`AddData` 自增 id。
    - 存储 key 是「Code + 本地 id」的合成 long；Code 在 `DataManager.DataCenterCodes` 中分配，Code 0 等于旧行为。
    - 只有 `Id == -1` 的数据能 `AddData`，离开中心后 Id 会失效为 -1；查询优先用 `TryGetData`。
-   - 重点确认：**当前基类并没有 `OnDataAdded / OnDataRemoved / OnCleared` 事件**，不要照着 README 直接订阅一个不存在的事件。
+   - 重点确认：**当前基类并没有 `OnDataAdded / OnDataRemoved / OnCleared` 事件**，不要照着旧版文档直接订阅一个不存在的事件。
 5. `Assets/FModa/Architecture/UI/UIBase.cs` + `UIManager.cs`
    - 重点看 `OnEnable / OnDisable / OnDestroy` 如何驱动 `OnBind / OnUnbind / OnRefresh`，以及关闭的 UI 为什么不会立刻销毁。
 6. `Assets/FModa/Architecture/Renders/Poolable.cs` + 第 2 节里的对象池调用点
@@ -109,12 +115,12 @@ GF           →  Flow / UI / Pool / Module 注册表
 
 以「扣血」为例，标准链路是：
 
-1. `Assets/Example/Scripts/Renders/Unit/Units.cs:41` — 渲染器轮询输入 `inputManager.KeyDown("UnitDeductionOfBlood")`
-2. `Assets/Example/Scripts/Modules/Unit/UnitManager.cs:87` — 调用模块的 `TakeDamage(id)`
-3. `Assets/Example/Scripts/Modules/Unit/Data/UnitDataCenter.cs:17` — 模块通过 `UpdateUnitData` 修改数据中心里的引用
-4. `UnitManager.cs:90` — 模块广播 `OnHpChanged`
+1. `Assets/Example/Scripts/Renders/Unit/Units.cs:61` — 渲染器轮询输入 `inputManager.KeyDown("UnitDeductionOfBlood")`
+2. `Assets/Example/Scripts/Modules/Unit/UnitManager.cs:93` — 调用模块的 `TakeDamage(id)`
+3. `Assets/Example/Scripts/Modules/Unit/Data/UnitDataCenter.cs:19` — 模块通过 `UpdateUnitData` 修改数据中心里的引用
+4. `UnitManager.cs:99` — 模块广播 `OnHpChanged`
 5. `Assets/Example/Scripts/UI/UnitHpPanel.cs:27` — UI 在 `OnBind` 里订阅，`RefreshAll` 从模块的 `GetAllUnitData()` 重新取数据
-6. `UnitHpPanel.cs:65` — 模块再把 DataCenter 的字典交给 UI 做展示
+6. `UnitHpPanel.cs:77` — 模块再把 DataCenter 的字典交给 UI 做展示
 
 这条链路里，Render 和 UI 都没有直接碰 `DataManager.Unit`。**如果你追踪到的链路中视图直接访问了 DataCenter，那不是另一条合法路径，而是需要修的越界。**
 
@@ -124,16 +130,20 @@ GF           →  Flow / UI / Pool / Module 注册表
 
 | 你要写的东西 | 应该放在 |
 |---|---|
-| 全局配置、可调参数、静态只读表 | `GameConfig` 或新的 `ScriptableObject`，不要塞进 DataCenter |
+| 全局配置、可调参数、常量、静态只读表 | **只放 `Assets/FModa/Architecture/Global/GameConfig.cs`**，通过 `GF.config` 读取；每个字段注释用途。不要新建 `ScriptableObject` 子类或常量类，也不要塞进 DataCenter |
 | 会被增删改、需要按 id 查询的运行时状态 | `DataCenter<T>` + `IData` |
-| 业务规则、状态转换、对外的业务事件 | `Module`（Manager） |
+| 业务规则、状态转换、对外的业务事件 | `Module`（Manager），但先确认内置模块没有同类能力 |
 | 多个模块的启动顺序、场景/关卡切换 | `Flow` |
 | 每帧动画、输入轮询、Transform 操作 | `Render`（普通 `MonoBehaviour`） |
-| 面板、按钮、文本刷新 | `UIBase` |
+| 面板、按钮、文本刷新 | **`UIBase` 子类（不能直接 `MonoBehaviour`）**，预制体放 `Resources/UI`，通过 `GF.ui.OpenUI` 打开 |
+| 场景内对象 / 预制体引用 | `GameObjectManager` + `GF.sgo`；场景对象挂 `Sgo`（或实现 `ISGO`），预制体引用登记在 Inspector 字段 |
+| 需要频繁生成 / 回收的对象 | `Poolable` + `GF.Spawn / GF.Despawn` |
 | 跨模块协作 | 写在 `Flow` 里，通过各自的接口调用 |
-| 纯工具函数、无状态算法 | 普通静态类，不要为了「统一」硬造模块 |
+| 公用静态方法、纯工具函数、无状态算法 | **只放 `Assets/FModa/Architecture/Global/PM.cs`**，统一 `PM.xxx(...)`；不要新建 `Utils/Helper/Common` 类 |
+| 会被两个及以上模块/视图使用的枚举 | **只放 `Assets/FModa/Architecture/Global/GameEnum.cs`**（`FModa.Enum`），不要在模块 Data 里重复定义 |
+| 需求看起来像内置模块已经做过的事 | 先读 `Skills/README.md` 的内置模块清单，调用或扩展现有模块 |
 
-判断口诀：**有状态且有规则 → 模块；有状态但只是数据 → 数据中心；没有状态 → 静态类/工具；只在屏幕上表现 → Render/UI。**
+判断口诀：**先翻内置模块 → 有状态且有规则才做模块；有状态但只是数据 → 数据中心；全局静态数据 → GameConfig；公用静态方法 → PM；公用枚举 → GameEnum；只在屏幕上表现 → Render/UI。**
 
 ---
 
@@ -149,14 +159,14 @@ GF           →  Flow / UI / Pool / Module 注册表
 
 | 文档说法 | 代码事实 | 你应该怎么做 |
 |---|---|---|
-| 根目录 `CLAUDE.md` 描述 `Assets/ECMVC/` 的 EC/MVC 分层、`EntityBehaviour`、`CustomComponent`、MoonSharp | `Assets/ECMVC/` 不存在，仓库中也没有 `EntityBehaviour` / `CustomComponent` / MoonSharp 代码；热更新实际用 XLua | 不要按 `CLAUDE.md` 重建 ECMVC 目录；以 `Assets/FModa` 为准 |
-| README 使用 `GF.flowManager`、`GF.uiManager` | 实际静态字段是 `GF.flow`、`GF.ui`、`GF.pool`、`GF.config` | 写代码用实际字段；改文档时顺手修正 |
-| README 说数据中心会广播 `OnDataAdded / OnDataRemoved / OnCleared` | 当前 `DataCenter<T>` 没有这三个事件 | 不要订阅不存在的事件；需要时在自己的 DataCenter 里显式加事件 |
-| README 说 `Clear()` 会把 id 计数归零 | `DataCenter<T>.Clear()` 只清字典，注释明确写「id 不重置」 | 以代码为准 |
-| README 说 `Units.cs` 订阅了数据生命周期事件 | 实际 `Units.cs` 没有订阅，只在 `OnDestroy` 里 `UnRegister` | 需要外部删除通知时，由模块补业务事件，不要假设基类已有 |
-| README 要求 `IModule` 生命周期方法必须 `public` | 示例 `UnitManager.OnDestroy()` 是 private | 新代码按规范写 public；private 版本只是碰巧被 Unity 消息调用，`IModule.OnDestroy` 不会被调用 |
+| README 使用 `GF.flowManager`、`GF.uiManager` | 实际静态字段是 `GF.flow`、`GF.ui`、`GF.pool`、`GF.config`、`GF.sgo` | 写代码用实际字段；改文档时顺手修正 |
+| 旧版 README / 部分 Doc 说数据中心会广播 `OnDataAdded / OnDataRemoved / OnCleared` | 当前 `DataCenter<T>` 没有这三个事件 | 不要订阅不存在的事件；需要时在自己的 DataCenter 里显式加事件 |
+| 旧版文档 / 网上示例把 `IModule` 的销毁钩子写成 `OnDestroy` | 接口方法是 **`OnRemove()`**；`OnDestroy()` 只是 MonoBehaviour 的 Unity 消息，GF 不会调用它 | 实现 `IModule` 时写 `public void OnRemove()`；MonoBehaviour 的 Unity `OnDestroy` 另行处理，两处清理逻辑共用且幂等（示例 `UnitManager` 已按此修正） |
+| README 快速开始里的流程写 `public void Enter()` | 实际签名是 `Enter(IFlow lastFlow, List<object> list = null)`，且 `IFlow` 没有默认实现 | 按当前签名写；`lastFlow` 为 `null` 表示首次启动 |
+| README 快速开始用 `GF.flowManager.StartFlow` / `GF.uiManager.OpenUI` | 实际是 `GF.flow.StartFlow` / `GF.ui.OpenUI` | 以 `GF.cs` 的静态字段为准 |
 | `Assets/FModa/Modules/Input/Doc/README.md` 写 `UnSubscribeStarted` | 实际接口方法是 `UnsubscribeStarted`（小写 s） | 以 `IInputManager.cs` 为准 |
-| `Assets/Example/README/README.md` 说不要用 lambda 订阅 | 示例 `ExampleFlow.cs` 自己用了 lambda 且没有退订 | 新代码用命名方法；示例里的写法不要照抄 |
+| README 说订阅要用命名方法 | 示例 `ExampleFlow.cs:24` 自己用了 lambda，且 `Exit()` 没有退订 | 新代码用命名方法并在 `Exit()` 成对退订；示例里的写法不要照抄 |
+| 旧文档引用 `Assets/Example/README/README.md` | 该文件已移动到 `Assets/FModa/README/README.md` | 以新路径为准 |
 
 **处理原则**：文档与代码冲突时，不要同时保留两套说法。你要改这个区域，就在同一次改动里把文档改成与代码一致，或把代码改成与设计一致，并说明选择了哪一个。
 
@@ -166,12 +176,13 @@ GF           →  Flow / UI / Pool / Module 注册表
 
 在写第一行代码前，必须能回答：
 
-1. **归属**：这个改动属于 Data / DataCenter / Module / Flow / Render / UI 中的哪一层？
-2. **是否已存在**：用 `grep` 确认没有同职责的模块、数据中心或事件。不要新建一个并行系统。
+1. **归属**：这个改动属于 Data / DataCenter / Module / Flow / Render / UI 中的哪一层？静态数据、静态方法、公用枚举是否分别落在 `GameConfig.cs` / `PM.cs` / `GameEnum.cs`？
+2. **是否已存在**：先读 `Skills/README.md` 的内置模块清单，再用 `grep` 确认没有同职责的模块、数据中心或事件。不要重复造轮子，也不要新建并行系统。
 3. **唯一写入者**：这份状态由谁写？如果两个模块都能写，先回到 Flow 层重新划分。
 4. **跨边界事件**：视图需要知道什么变化？事件定义在哪个模块接口上？谁在什么地方退订？
 5. **生命周期**：谁创建它？场景自动注册还是 Flow 创建？谁移除它？切场景时怎么处理？
 6. **可移植性**：这个模块如果整体复制到另一个 Unity 项目，会不会因为引用了 `Assets/Example` 或别的模块而报错？
+7. **视图入口**：UI 是否继承 `UIBase` 并通过 `GF.ui.OpenUI` 打开？场景对象 / 预制体是否通过 `GF.sgo`（`Sgo`/`ISGO`）获取，而不是 `GameObject.Find` / `FindObjectOfType`？
 
 任何一条答不上来，说明还没读够，不要开始堆代码。
 
@@ -183,7 +194,14 @@ GF           →  Flow / UI / Pool / Module 注册表
 - 新代码里出现 `FindObjectOfType`、新的 `Instance` 单例来绕开 GF：在造第二套框架。
 - 模块 A 直接 `GF.GetModule<BManager>()` 并调用具体方法：耦合过紧，交给 Flow 或依赖接口。
 - 在 Unity 的 `Awake()` 里订阅模块/数据中心：GF 与场景对象的 `Awake` 顺序未定义，订阅应放在模块的 `OnAwake`。
-- `void OnDestroy()` 写成 private，却指望 `IModule.OnDestroy` 被调用：接口方法不会被映射。
+- 实现 `IModule` 时写 `void OnDestroy()`：接口的销毁钩子是 **`OnRemove()`**，GF 调不到 `OnDestroy`；Unity 的 `OnDestroy` 消息与它无关。
+- 新建 `Utils` / `Helper` / `Common` / `Extensions` 静态工具类，或另造 `public static` 数据类：公用静态方法只放 `PM.cs`，静态数据只放 `GameConfig.cs`。
+- 在模块 Data 里新增跨模块枚举，再写转换适配器：公用枚举只放 `GameEnum.cs`。
+- 新建自己的 `ScriptableObject` 配置类或常量类：静态数据统一进 `GameConfig.cs`（`GameConfig` 实例在 `Resources/GameConfig.asset`）。
+- 没翻 `Assets/FModa/Modules/` 就新建模块：先确认内置模块没有现成能力，再考虑新模块。
+- 让 UI 面板直接继承 `MonoBehaviour`：`UIManager` 只认 `UIBase`，`OpenUI` 会报「该UI没有UIBase组件」并返回 `null`。
+- 手动 `Instantiate` UI 或自己注册：绕过 `UIManager` 的打开 / 关闭 / 复用体系，面板不受管理。
+- 用 `GameObject.Find` / `FindObjectOfType` 找场景对象：改名、复制、失活、换场景都会失效；用 `Sgo` + `GF.sgo`。
 - 在模块的每帧 `Update()` 里做逻辑：模块逻辑应走 `OnUpdate`（默认 0.1s 逻辑帧）；Render 才允许每帧。
 - 场景里已经挂了模块，又手写 `GF.RegisterModule<T>()`：会注册两次，生命周期跑两遍。
 - 写 `GF.GetModule<IUnitManager>()`：业务接口不继承 `IModule`，编译不过；应写具体类型 `GF.GetModule<UnitManager>()`。
@@ -212,4 +230,4 @@ GF           →  Flow / UI / Pool / Module 注册表
 
 ## 9. 一句话总结
 
-**先找模块，再找数据；视图只喊话，模块做决定，Flow 管顺序，GF 管生死。**
+**先翻内置模块，再决定造不造；先找模块，再找数据；视图只喊话，模块做决定，Flow 管顺序，GF 管生死。**

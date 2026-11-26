@@ -54,11 +54,17 @@ Render / UI → Module        （视图绝不直接访问 DataCenter）
 
 - `GF.GetModule<ConcreteType>()`：业务接口不满足 `where T : class, IModule`，不能写 `GF.GetModule<IUnitManager>()`。
 - 场景中挂载的模块会被 `AutoRegisterSceneModules()` 自动注册；不要再手写 `RegisterModule`，否则生命周期跑两遍。
-- `IModule` 生命周期方法必须 `public`；订阅放在 `OnAwake`，用命名方法，并在 `OnDestroy`/`Exit` 成对退订。
+- `IModule` 生命周期方法必须 `public`；销毁钩子是 `OnRemove()`（不是 `OnDestroy`）。订阅放在 `OnAwake`，用命名方法，并在 `OnRemove()`/`Exit` 成对退订。
 - 不要缓存 `DataManager.X` 到字段：`DataManager.PreWarm()` 会整体替换实例。
 - 当前 `DataCenter<T>` **没有** `OnDataAdded / OnDataRemoved / OnCleared`；不要订阅不存在的事件。
 - 模块逻辑走 `OnUpdate`（默认 0.1s 逻辑帧）；Render 才允许每帧 `Update`。
 - 池化对象用 `GF.Spawn / GF.Despawn`，不要直接 `Instantiate / Destroy`。
+- **禁止到处新造类**：静态数据只放 `Assets/FModa/Architecture/Global/GameConfig.cs`（每个字段注释用途，经 `GF.config` 读取）；公用静态方法只放 `Global/PM.cs`；公用枚举只放 `Global/GameEnum.cs`。
+- **先复用再新建**：`Assets/FModa/Modules/` 下有内置模块（Input/Network/Hotfix/Modding/Multilingual/Debug/Pathfinding），清单见 Skills README；没有现成能力才新建模块。
+- **UI 必须继承 `UIBase`**（不能直接 `MonoBehaviour`），预制体放 `Assets/Resources/UI/`，通过 `GF.ui.OpenUI("PrefabName")` 打开；不要手动 `Instantiate` 或自己注册。
+- **Render 获取场景对象 / 预制体走 `GF.sgo`**：场景对象挂 `Sgo`（或实现 `ISGO`）并填写唯一 `SgoId`，预制体在 `GameObjectManager` Inspector 登记；不要用 `GameObject.Find` / `FindObjectOfType`。
+- **频繁生成 / 回收的对象继承 `Poolable`**，用 `GF.Spawn / GF.Despawn`。
+- **需要打印时，用GF.log,不要直接用 Debug.Log**。
 
 ## Build & Test
 
@@ -72,5 +78,5 @@ Unity project — there is no CLI build script. All building and testing is done
 ## Reference
 
 - 完整模块纵切：`Assets/Example/Scripts/Modules/Unit/`
-- 架构说明（部分内容已过期，以 Skills 中的漂移表为准）：`Assets/Example/README/README.md`
+- 架构说明（部分内容已过期，以 Skills 中的漂移表为准）：`Assets/FModa/README/README.md`
 - Skills 索引：`Assets/FModa/Architecture/Skills/README.md`

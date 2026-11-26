@@ -1,6 +1,6 @@
 ---
 name: fmoda-view-ui
-description: 在 FModa/ECMVC Unity 项目中编写渲染器（Render）、UI 或对象池对象时使用。涵盖 UIBase 的 OnBind/OnUnbind/OnRefresh 生命周期、UIManager 的打开/关闭/复用/子 UI 规则、渲染器注册与注销数据的方式、Poolable 与 GF.Spawn/Despawn 的正确用法，以及视图层不得直接访问数据中心、不得用 Destroy 回收池对象等硬性约束。
+description: 在 FModa/ECMVC Unity 项目中编写渲染器（Render）、UI 或对象池对象时使用。UI 面板必须继承 UIBase（不能直接 MonoBehaviour）并通过 GF.ui.OpenUI 接入 UIManager；Render 用普通 MonoBehaviour，通过 GF.sgo（Sgo/ISGO + GameObjectManager）获取场景对象与预制体，需要频繁生成时使用 Poolable + GF.Spawn/Despawn。涵盖 UIBase 的 OnBind/OnUnbind/OnRefresh 生命周期、UIManager 的打开/关闭/复用/子 UI 规则、场景对象管理、对象池用法，以及视图层不得直接访问数据中心等硬性约束。
 ---
 
 # 渲染器 / UI / 对象池设计规范
@@ -15,9 +15,76 @@ description: 在 FModa/ECMVC Unity 项目中编写渲染器（Render）、UI 或
 
 ---
 
+## 0. 先选对基类（写代码前必看）
+
+| 你要写的东西 | 必须继承 / 使用 | 入口 |
+|---|---|---|
+| 游戏内 UI 面板 | **`UIBase`**（不能直接 `MonoBehaviour`） | `GF.ui.OpenUI("PrefabName")` |
+| 场景表现对象、单位、特效、输入轮询 | `MonoBehaviour` | 挂在预制体或场景对象上 |
+| 需要频繁生成 / 回收的对象 | `Poolable` | `GF.Spawn / GF.Despawn` |
+| 获取场景内对象 | `Sgo` 组件（或实现 `ISGO`） | `GF.sgo.gameObjects["SgoId"]` |
+| 获取预制体引用 | `GameObjectManager` 的 Inspector 字段 | `GF.sgo.xxxPrefab` |
+| 子 UI | `UIBase.OpenSubUI(...)` | 不要手动 `Instantiate` |
+
+> ⚠️ **最容易犯的错：UI 直接继承 `MonoBehaviour`。**
+> `UIManager.CreateUI` 用 `TryGetComponent<UIBase>` 取组件，取不到会直接报错并返回 `null`：
+> 面板拿不到 `OnBind / OnUnbind / OnRefresh` 生命周期，也不会进入 `UIManager` 的打开 / 关闭 / 复用体系，
+> 表现为「`OpenUI` 之后界面没出现或完全不受管理」。
+>
+> 同理：UI 不要 `Instantiate`、不要 `new`、不要 `AddComponent<UIBase>` 绕过预制体；一律走 `GF.ui.OpenUI`。
+
+---
+
 ## 1. 渲染器（Render）
 
 渲染器是普通的 `MonoBehaviour`，每帧 `Update`，不走模块的逻辑帧 Tick。它负责动画、Transform、输入轮询这类「表现层」工作。
+
+### 创建一个 Render 的步骤
+
+1. 新建普通 `MonoBehaviour`（**不要**继承 `UIBase`，UI 才用 `UIBase`）。
+2. 需要模块：在 `Start()` 或真正使用前 `GF.GetModule<具体类型>()`；只调用模块方法，不碰 `DataCenter`。
+3. 需要场景对象 / 预制体：走 `GF.sgo`（见下一节），不要 `GameObject.Find` / `FindObjectOfType`。
+4. 需要频繁生成 / 回收：继承 `Poolable`，用 `GF.Spawn / GF.Despawn`。
+5. 每帧表现放 `Update`；事件订阅用 `OnEnable / OnDisable` 成对。
+
+### 获取场景对象和预制体（`GF.sgo`）
+
+`GameObjectManager` 由 GF 在 `Awake` 里通过 `GetComponent<GameObjectManager>()` 获取，**必须和 GF 挂在同一个 GameObject 上**。
+
+**预制体引用**：在 `GameObjectManager` 的 Inspector 字段（如 `unitPrefab`、`unitPoolPrefab`，也可以自行添加字段）里拖入预制体，然后：
+
+```csharp
+var go = GF.Spawn(GF.sgo.unitPrefab, position, Quaternion.identity);
+```
+
+**场景内对象**：给目标对象加 `Sgo` 组件（或让已有脚本实现 `ISGO`），手动填写 `SgoId`（同一场景内唯一），需要限定场景时填 `SceneName`，然后：
+
+```csharp
+var panelGo = GF.sgo.gameObjects["UnitHpPanel"];
+var hpPanel = panelGo.GetComponent<UnitHpPanel>();
+```
+
+如果对象已经有自己的脚本，也可以直接实现 `ISGO`，省掉额外的 `Sgo` 组件：
+
+```csharp
+using FModa.GameObjectManager;
+using UnityEngine;
+
+public class SceneMarker : MonoBehaviour, ISGO
+{
+    public string SgoId => "UnitHpPanel"; // 同一场景内唯一
+    public string SceneName => "";        // 留空 = 所有场景都收录
+}
+```
+
+规则：
+
+- `SgoId` 是手填的字符串，改场景 / 复制对象时要保证唯一；`SceneName` 留空表示所有场景都收录，填了就只在对应场景收录。
+- `GameObjectManager` 在 `Init()` 和每次 `sceneLoaded` 时扫描场景，字典会随场景重建；切场景后不要缓存旧的 GameObject 引用。
+- 找不到 key 时先检查 `SgoId` 拼写、`SceneName` 是否匹配，以及对象是否已经随场景卸载。
+- **不要用 `GameObject.Find` / `FindObjectOfType` 做场景装配**：改名、复制、失活都会让查找失效；`GF.sgo` 是统一的场景对象入口。
+- 预制体**内部**的子物体引用直接用 `[SerializeField]` 拖拽即可；只有跨对象、按 ID 获取场景对象，或需要全局预制体引用时才用 `GF.sgo`。
+- 场景对象上的脚本如果继承 `UIBase`，仍然通过 `GF.ui.OpenUI` 管理，不要用 `GF.sgo` 直接操作它的生命周期。
 
 ### 标准骨架
 
@@ -79,6 +146,8 @@ public class Units : MonoBehaviour
 - **数据可能被外部删除。** 模块必须提供 `TryGetUnitData(id, out data)` 这类安全查询；Render 在拿到明确的删除通知前，每次调用模块前都要确认 id 仍然有效，否则 `EndFlow/Clear` 之后继续按键就会空引用。
 - **不要假设 `Start` 一定在 GF 初始化之后。** 场景中的 GF 与 Render 都是 `Awake` 阶段创建，`Start` 相对安全，但更稳妥的是在真正使用前取模块，并对 `null` 做处理。
 - **需要池化时继承 `Poolable`**，用 `GF.Spawn / GF.Despawn`，不要 `Instantiate / Destroy`。
+- **日志走 `GF.Log / GF.LogWarning / GF.LogError`**：受 `GF.debugMode` 控制；不要直接 `Debug.Log`。
+- **不要为视图另造公用类型**：静态数据放 `Global/GameConfig.cs`，公用静态方法放 `Global/PM.cs`，公用枚举放 `Global/GameEnum.cs`。
 
 ### 事件订阅型 Render
 
@@ -107,6 +176,17 @@ private void HandleUnitRemoved(long id)
 ---
 
 ## 2. UI（UIBase）
+
+### 创建一个 UI 的步骤
+
+1. 预制体根节点挂一个**继承 `UIBase`** 的脚本；预制体放 `Assets/Resources/UI/`，文件名就是 `OpenUI` 用的名字（如 `Resources/UI/UnitHpPanel.prefab` 对应 `OpenUI("UnitHpPanel")`）。
+2. 实现 `OnBind()` / `OnUnbind()`（必须）；需要初始同步就重写 `OnRefresh()`，需要复位状态就重写 `ResetUI()`。
+3. 打开：`GF.ui.OpenUI("UnitHpPanel")`；关闭：面板内调 `Close()`，外部调 `GF.ui.CloseUI(id)`。
+4. 不要手动 `Instantiate`、不要手动 `Register`、不要自己 `AddComponent<UIBase>`；实例化、id 分配、复用、延迟销毁都由 `UIManager` 负责。
+5. 不希望被 `UIManager` 管理时设置 `independence = true`，并自行管理生命周期。
+6. 预制体必须真正带 `UIBase` 子类组件；`UIManager.CreateUI` 用 `TryGetComponent<UIBase>` 校验，缺失会报错并返回 `null`。
+
+> 推荐做法：UI 只负责显示和转发输入；按钮点击调用模块方法，不直接改数据。
 
 ### 标准骨架
 
@@ -188,10 +268,13 @@ protected override void OnUnbind()
 
 ### 不要做的事
 
+- **不要让 UI 直接继承 `MonoBehaviour`。** 必须继承 `UIBase`，否则 `UIManager` 找不到组件，`OpenUI` 报错返回 `null`，也没有 `OnBind / OnUnbind / OnRefresh` 生命周期。
 - 不要在 UI 里 `DataManager.XXX`。视图与数据之间必须有模块这一层。
 - 不要在 UI 里 `new` 模块或 `CreateModule`。
+- 不要手动 `Instantiate` UI、手动 `Register` 或 `AddComponent<UIBase>` 绕过 `UIManager`。
 - 不要在 UI 里写业务规则，例如「血量小于 0 就删除数据」；这属于模块。
 - 不要在 `Update` 里轮询业务状态。示例 `UnitHpPanel.Update` 只用于输入转发；更推荐用按钮或输入模块的事件订阅。
+- 不要用 `GameObject.Find` / `FindObjectOfType` 找场景对象；用 `Sgo` + `GF.sgo`。
 
 ---
 
@@ -201,6 +284,7 @@ protected override void OnUnbind()
 
 - `UIManager` 要与 `GF` 放在**同一个 GameObject** 上（或至少同样 `DontDestroyOnLoad`），否则切场景时会被销毁。`GF.Awake()` 通过 `FindObjectOfType<UIManager>()` 查找它。
 - UI 预制体放在 `Assets/Resources/UI/` 下；`OpenUI("BlankPanel")` 会加载 `Resources/UI/BlankPanel`。
+- `uiRoot` 没配、被销毁或不在启用的 Canvas 下时，`CreateUI` 会通过 `ResolveUIRoot()` 重新在场景里找 `UIRoot`，仍找不到就自动创建带 Canvas 的 `UIRoot(自动)`。这只是兜底，正式项目仍应显式配置，避免层级和排序不可控。
 
 ### 打开 / 关闭 / 复用
 
@@ -242,6 +326,14 @@ OpenSubUI("RedPanel");   // 在父 UI 内部打开
 ---
 
 ## 4. 对象池
+
+### 创建一个池对象的步骤
+
+1. 新建脚本继承 `Poolable`，挂在预制体上。
+2. 在 `ActionOnRelease` 里调用 `base.ActionOnRelease(go)`，并重置所有可变状态。
+3. 在 `GameObjectManager` 的 Inspector 字段里登记这个预制体（如 `unitPoolPrefab`），或通过其他方式持有预制体资产。
+4. 生成：`GF.Spawn(GF.sgo.unitPoolPrefab, position, rotation)`；回收：`GF.Despawn(go)`。
+5. 不要 `Instantiate` / `Destroy` 池对象，也不要用场景实例当池的 source。
 
 ### 使用方式
 
@@ -306,6 +398,11 @@ public class PoolUnit : Poolable
 
 | 错误 | 现象 | 正确做法 |
 |---|---|---|
+| **UI 脚本直接继承 `MonoBehaviour`** | `UIManager` 报「该UI没有UIBase组件」，`OpenUI` 返回 `null`，面板不受管理 | 必须继承 `UIBase`，通过 `GF.ui.OpenUI` 打开 |
+| 手动 `Instantiate` UI / 自己 `Register` | 不在 `UIManager` 的打开/关闭/复用体系内 | 统一走 `GF.ui.OpenUI` |
+| 用 `GameObject.Find` / `FindObjectOfType` 找场景对象 | 改名、复制、失活、换场景后查找失效 | 给对象挂 `Sgo`，用 `GF.sgo.gameObjects["SgoId"]` |
+| 场景对象没挂 `Sgo` / `SgoId` 重复 | `GF.sgo` 取不到，或被同名对象覆盖 | 挂 `Sgo`，`SgoId` 场景内唯一 |
+| `GameObjectManager` 不与 `GF` 同对象 | `GF.sgo` 为 null，GF 初始化空引用 | 挂到与 `GF` 同一个 GameObject |
 | UI/Render 直接 `DataManager.XXX` | 绕过模块，数据变化无人转发 | 通过模块方法和事件 |
 | `OnBind` 订阅、`OnUnbind` 忘记退订 | 面板重新打开后重复回调/空引用 | 严格逆操作 |
 | 用 lambda `AddListener` / 订阅事件 | 无法解绑 | 命名方法 |
@@ -325,8 +422,10 @@ public class PoolUnit : Poolable
 
 **Render**
 
-- [ ] 继承 `MonoBehaviour`，每帧表现逻辑在 `Update`，业务规则不在 Render
+- [ ] 继承 `MonoBehaviour`（不是 `UIBase`），每帧表现逻辑在 `Update`，业务规则不在 Render
 - [ ] 模块用具体类型获取：`GF.GetModule<XxxManager>()`
+- [ ] 场景对象 / 预制体走 `GF.sgo`；场景对象已挂 `Sgo`/`ISGO` 且 `SgoId` 唯一
+- [ ] 没有用 `GameObject.Find` / `FindObjectOfType` 做场景装配
 - [ ] 注册/注销数据成对
 - [ ] 事件订阅/退订成对，使用命名方法
 - [ ] 不直接访问 `DataManager`
@@ -334,8 +433,9 @@ public class PoolUnit : Poolable
 
 **UI**
 
-- [ ] 继承 `UIBase`，实现 `OnBind` / `OnUnbind`，按需重写 `OnRefresh`
-- [ ] 预制体在 `Assets/Resources/UI/`
+- [ ] **继承 `UIBase`（不是 `MonoBehaviour`）**，实现 `OnBind` / `OnUnbind`，按需重写 `OnRefresh`
+- [ ] 预制体在 `Assets/Resources/UI/`，通过 `GF.ui.OpenUI("PrefabName")` 打开
+- [ ] 没有手动 `Instantiate`、手动 `Register` 或 `AddComponent<UIBase>`
 - [ ] 按钮监听成对增删，使用命名方法
 - [ ] 只订阅模块事件，不订阅 DataCenter
 - [ ] 关闭后不持有 UI 引用
@@ -366,3 +466,4 @@ public class PoolUnit : Poolable
 - UI 基类：`Assets/FModa/Architecture/UI/UIBase.cs`
 - UI 管理：`Assets/FModa/Architecture/UI/UIManager.cs`
 - 对象池：`Assets/FModa/Architecture/Renders/Poolable.cs`、`PoolManager.cs`
+- 场景对象管理：`Assets/FModa/Architecture/Renders/GameObjectManager.cs`、`Sgo.cs`、`ISGO.cs`
