@@ -8,7 +8,7 @@ namespace Conquer.Unit
     /// <summary>
     /// 单位控制
     /// </summary>
-    public class UnitManager : MonoBehaviour,IModule,IUnitManager
+    public class UnitManager : IModule,IUnitManager
     {
         public Type InterfaceType => typeof(IUnitManager);
 

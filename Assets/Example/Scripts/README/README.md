@@ -16,10 +16,10 @@
 ### Awake 阶段
 
 1. `GF.Awake()` 加载 `GameConfig`，预热线数据中心。
-2. GF 自动注册场景中挂载的模块。
-3. GF 获取 `UIManager`、创建对象池并初始化 `GameObjectManager`。
-4. GF 启动第一个 Flow。
-5. Flow 按顺序取得所需 Bond，并调用 `UnitBond.SpawnUnit(...)`。
+2. GF 获取 `UIManager`、创建对象池并初始化 `GameObjectManager`，不扫描场景模块。
+3. GF 启动第一个 Flow。
+4. Flow 通过 `GF.CreateModule` 创建多语言、单位和输入模块，并取得所需 Bond。
+5. Flow 调用 `UnitBond.SpawnUnit(...)`。
 6. `UnitBond` 生成圆形单位、注册 `UnitData`、把 id 注入 `Units`，再触发 `UnitHpPanel` 刷新。
 
 `GameObjectManager.Awake()` 还会扫描场景对象；GF 的默认执行顺序为 `-1000`，实际对象收录以 `sgo.Init()` 和场景加载扫描为准。

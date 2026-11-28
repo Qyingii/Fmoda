@@ -75,7 +75,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 
 | 概念 | 位置 | 职责 |
 |---|---|---|
-| GF | `Assets/FModa/Architecture/Global/GF.cs` | 单例、逻辑帧、模块和 Bond 注册/获取、场景模块自动注册、`Spawn/Despawn`、日志 |
+| GF | `Assets/FModa/Architecture/Global/GF.cs` | 单例、逻辑帧、普通 C# 模块和 Bond 注册/获取、`Spawn/Despawn`、日志 |
 | GameConfig | `Assets/FModa/Architecture/Global/GameConfig.cs` | **全局静态数据的唯一位置**；实例在 `Assets/Resources/GameConfig.asset`，通过 `GF.config` 读取 |
 | PM | `Assets/FModa/Architecture/Global/PM.cs` | **纯静态工具方法的唯一位置**，命名空间 `FModa`；禁止模块相关方法 |
 | GameEnum | `Assets/FModa/Architecture/Global/GameEnum.cs` | **公用枚举的唯一位置**，命名空间 `FModa.Enum` |
@@ -83,7 +83,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 | Bond 管理 | `Assets/FModa/Architecture/Global/GF.cs` 的「粘合剂管理」区域 | `CreateBond<T>()` 显式创建；`GetBond<T>()` 获取，不存在时自动创建；按具体类型复用 |
 | Flow 契约 | `Assets/FModa/Architecture/Flows/IFlow.cs` | `Enter(IFlow lastFlow, List<object> list = null) / Update / Exit`，三个方法都必须实现 |
 | Flow 管理 | `Assets/FModa/Architecture/Flows/FlowManager.cs` | `StartFlow / SwitchFlow / SwitchSceneAndFlow / SwitchSceneAndFlowAsync` |
-| Module 契约 | `Assets/FModa/Modules/IModule.cs` | `InterfaceType / Priority / OnAwake / OnStart / OnUpdate / OnLateUpdate / OnRemove / OnApplicationQuit`；销毁钩子是 `OnRemove` |
+| Module 契约 | `Assets/FModa/Modules/IModule.cs` | 普通 C# 类实现；`InterfaceType / Priority / OnAwake / OnStart / OnUpdate / OnLateUpdate / OnRemove / OnApplicationQuit`；销毁钩子是 `OnRemove`，禁止继承 `MonoBehaviour` |
 | 数据标记 | `Assets/FModa/Architecture/Data/IData.cs` | 空标记接口 |
 | 数据中心 | `Assets/FModa/Architecture/Data/DataCenter.cs`、`IDataCenter.cs` | 泛型 `Dictionary<long,T>` 容器、合成 id、增删改查 |
 | id 布局 | `Assets/FModa/Architecture/Data/DataCenterId.cs` | 12 位数据中心 Code + 51 位本地 id、Code 占用校验、`Compose/Local/Center/Describe` |
@@ -104,7 +104,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 1. `Assets/FModa/README/README.md`
    - 读设计意图、分层和术语；成员名以代码为准。
 2. `Assets/FModa/Architecture/Global/GF.cs`
-   - 看 `Awake()` 初始化顺序、模块生命周期、`AutoRegisterSceneModules()`，以及「粘合剂管理」区域的 `CreateBond / GetBond`。
+   - 看 `Awake()` 初始化顺序、普通 C# 模块的显式注册与生命周期，以及「粘合剂管理」区域的 `CreateBond / GetBond`。
 3. `Assets/FModa/Modules/IModule.cs`、`Architecture/Bond/IBond.cs`、`Architecture/Flows/IFlow.cs`
    - 分清模块生命周期、Bond 标记契约和 Flow 三个固定方法。
 4. `Assets/FModa/Architecture/Data/DataCenter.cs` + `DataManager.cs` + `DataCenterId.cs`
@@ -180,12 +180,13 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 | 旧说法或旧示例 | 当前事实 / 规则 | 你应该怎么做 |
 |---|---|---|
 | Flow 负责启动/销毁模块、模块间数据交换 | GF 提供底层模块生命周期；Flow 可以管理单个模块；多模块与跨层协作由 Bond 封装 | 单模块管理可留在 Flow；多模块或视图粘合迁入 Bond |
+| 模块可以继承 `MonoBehaviour`、挂到场景后自动注册 | 该能力已移除；模块只能是普通 C# 类，由 `CreateModule / GetModule / RegisterModule` 显式管理 | 删除模块组件和场景引用；Unity 消息与场景对象交给 Render / `GF.sgo` |
 | 此前文档误把 `ExampleFlow.cs` 的 `CreateModule / RemoveModule` 也列为待迁移残留 | 这些是允许的单模块管理，不需要迁移；`UnitBond` 与 `Units` 的注释应与实际注册者一致 | 保留合法调用，按实际注册者修正注释；lambda 未退订是另一个独立问题 |
 | 跨模块协作写在 Flow | 跨模块协作统一放 Bond | Flow 只保留单模块管理和组合步骤的调用顺序 |
 | 公共方法都放 PM | PM 只放与模块无关的纯静态工具方法 | 模块相关公共方法放对应模块或 Bond |
 | 文档使用 `GF.flowManager`、`GF.uiManager` | 实际字段是 `GF.flow`、`GF.ui`、`GF.pool`、`GF.config`、`GF.sgo` | 使用实际字段 |
 | 旧文档说数据中心有 `OnDataAdded / OnDataRemoved / OnCleared` | 当前 `DataCenter<T>` 没有这三个事件 | 需要时在具体 DataCenter 中显式定义 |
-| 把 `IModule` 销毁钩子写成 `OnDestroy` | 接口方法是 `OnRemove()` | 实现 `public void OnRemove()`；Unity 的 `OnDestroy` 另行幂等处理 |
+| 把 `IModule` 销毁钩子写成 `OnDestroy` | 接口方法是 `OnRemove()`；模块没有 Unity 消息 | 实现 `public void OnRemove()` |
 | 流程写 `public void Enter()` | 实际签名是 `Enter(IFlow lastFlow, List<object> list = null)` | 按当前签名实现 |
 | 文档写 `UnSubscribeStarted` | 输入接口实际方法是 `UnsubscribeStarted` | 以 `IInputManager.cs` 为准 |
 | 示例 `ExampleFlow.cs` 使用 lambda 订阅且未在 `Exit()` 退订 | 事件应使用命名方法并成对退订 | 新代码不要照抄该写法 |
@@ -204,7 +205,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 5. **Bond 边界**：跨模块、跨层代码是否可复用且集中在 Bond？Bond 是否没有实现流程切换？
 6. **PM 纯度**：方法是否完全不依赖模块、数据中心、流程、Bond 和视图？
 7. **跨边界事件**：事件定义在哪里？谁订阅、谁退订？
-8. **生命周期**：是场景自动注册、GF 底层管理、Flow 的单模块管理，还是 Bond 中封装的跨层初始化和清理？
+8. **生命周期**：模块是否为普通 C# 类，并由 GF 显式注册、Flow 的单模块管理或 Bond 中封装的跨层步骤处理？
 9. **可移植性**：模块整体复制到另一个项目时，是否仍不引用其他业务模块或 `Assets/Example`？
 10. **视图入口**：UI 是否继承 `UIBase` 并走 `GF.ui.OpenUI`？场景对象是否走 `GF.sgo`？
 
@@ -218,17 +219,17 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 - Bond / Module / Render / UI 调用 `GF.flow.SwitchFlow`：违反死规则，改成事件或返回值，由 Flow 自己切换。
 - PM 出现模块类型、`GF.GetModule`、`DataManager`、Render / UI、实体转换：不是纯工具，迁到 Module 或 Bond。
 - 模块 A 直接 `GF.GetModule<BManager>()`：耦合过紧，交给 Bond。
+- 模块继承 `MonoBehaviour` 或出现在场景组件中：改为普通 C# 类，并通过 GF 显式管理。
 - 视图出现 `DataManager.XXX`：改为模块查询或 Bond 步骤。
 - 新代码出现新的 `Instance` 单例绕开 GF：是在造第二套框架。
 - 在 Unity `Awake()` 里订阅模块/数据中心：改到模块 `OnAwake`。
-- 把 `IModule` 销毁钩子写成 `OnDestroy()`：改为 `public void OnRemove()`，Unity 消息另行幂等处理。
+- 把 `IModule` 销毁钩子写成 `OnDestroy()`：改为 `public void OnRemove()`。
 - 新建 `Utils / Helper / Common / Extensions`：纯工具放 PM，业务粘合放 Bond。
 - 在模块 Data 里重复定义跨模块枚举：公用枚举放 `GameEnum.cs`。
 - UI 面板直接继承 `MonoBehaviour`：必须继承 `UIBase`。
 - 手动 `Instantiate` UI：统一走 `UIManager`。
 - 用 `GameObject.Find / FindObjectOfType` 做场景装配：用 `Sgo` + `GF.sgo`。
 - 在模块每帧 `Update()` 里做逻辑：模块走 `OnUpdate`，Render 才每帧。
-- 场景模块自动注册后又手写 `RegisterModule`：会重复注册。
 - 写 `GF.GetModule<IUnitManager>()`：业务接口不满足约束，应写具体类型。
 - 用 lambda 订阅却无法退订：改命名方法。
 - 缓存 `DataManager.X`：`PreWarm()` 会替换实例。
@@ -243,7 +244,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 1. 用 Unity 2022.3.38f1 打开项目，确认 Console 无编译错误。
 2. 打开 `Assets/Example/Scenes/SampleScene.unity` 进入 Play：
    - GF 初始化日志正常；
-   - 场景模块只注册一次；
+   - 场景中不存在 Module 组件，Flow 创建的普通 C# 模块只注册一次；
    - Bond 重复获取时复用同一实例；
    - 流程进入/退出日志成对，切换只由 Flow 发起；
    - UI 打开、关闭、再次打开能复用。

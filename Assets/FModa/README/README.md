@@ -145,7 +145,7 @@ Modules/Network/
 └── Doc/README.md
 ```
 
-模块管理器实现业务接口和 `IModule`；需要 Inspector 引用时可同时继承 `MonoBehaviour`。只有模块可以访问数据中心。
+模块管理器是实现业务接口和 `IModule` 的普通 C# 类，不得继承 `MonoBehaviour`，也不得挂载到场景。只有模块可以访问数据中心。
 
 参考：`Assets/Example/Scripts/Modules/Unit/UnitManager.cs`。
 
@@ -155,13 +155,13 @@ Modules/Network/
 - 销毁钩子是 **`OnRemove()`**，不是 `OnDestroy()`。
 - 订阅数据中心事件放在 `OnAwake`，不要放在 Unity 的 `Awake()`。
 - 使用命名方法订阅，并在 `OnRemove()` 成对退订。
-- MonoBehaviour 模块的 `OnRemove()` 与 Unity `OnDestroy()` 可能都执行，清理逻辑必须幂等。
+- 模块没有 Unity 生命周期消息；不要在模块中依赖 `Awake / Start / Update / OnDestroy`。
 - 模块不直接引用其他模块的具体实现，跨模块协作交给 Bond。
 - 只涉及一个模块时，Flow 可以直接调用模块的 `Init()`；初始化同时组合多个模块或 Render / UI 时，由 Bond 调用。
 
 ### 启动与清理
 
-场景挂载的模块由 GF 自动注册，不要再手写 `RegisterModule`。纯逻辑模块由实际使用者通过 `GF.GetModule<ConcreteManager>()` 获取，不存在时自动创建。
+模块由实际使用者通过 `GF.GetModule<ConcreteManager>()` 获取，不存在时自动创建；需要显式创建时使用 `GF.CreateModule<T>()`，已有普通 C# 实例可通过 `GF.RegisterModule(instance)` 注册。GF 不再扫描场景或自动注册模块组件。
 
 单模块的准备和清理由 Flow 或其他实际使用者直接处理；涉及多个模块或模块与 Render / UI 的组合准备和清理时，应封装在 Bond 的 `Prepare / Cleanup` 等步骤中。多语言等全局基础服务可以按需获取，不必随每个 Flow 移除。
 

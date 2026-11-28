@@ -293,54 +293,22 @@ namespace FModa.Inventory
 }
 ```
 
-**B. 场景模块**：需要在 Inspector 拖预制体、Transform、配置时，继承 `MonoBehaviour`。
-
-```csharp
-public class UnitManager : MonoBehaviour, IModule, IUnitManager
-{
-    public Type InterfaceType => typeof(IUnitManager);
-    public int Priority => 5;
-
-    public GameObject unitPrefab; // Inspector 引用
-
-    public void OnAwake() { /* 订阅 */ }
-    public void OnRemove() { /* 退订，必须幂等 */ }
-    // 注意：MonoBehaviour 还会有 Unity 的 OnDestroy 消息，两者别混
-    // ...
-}
-```
+**B. 不允许场景模块**：Manager 只能是普通 C# 类，不得继承 `MonoBehaviour`，也不得挂载到场景或由 GF 扫描注册。预制体、Transform 和其他场景对象由 Render 与 `GF.sgo` 管理；静态配置放 `GameConfig`；模块需要的外部参数通过 `Init(...)` 等显式方法注入。
 
 Manager 的硬性规则：
 
-1. **生命周期方法必须 `public`，销毁钩子是 `OnRemove()`**。`IModule` 的方法是 `OnAwake / OnStart / OnUpdate / OnLateUpdate / OnRemove / OnApplicationQuit`，不是 `OnDestroy`。写成 `void OnDestroy()`（或 private）不会实现 `IModule.OnRemove`，接口又有空默认实现，编译器不报错，方法永远不会被 GF 调用；`OnDestroy` 只作为 Unity 消息存在。
-2. **订阅放在 `OnAwake`**。GF 与场景对象的 Unity `Awake` 顺序未定义；`OnAwake` 由 GF 主动调用，时序确定。
+1. **生命周期方法必须 `public`，销毁钩子是 `OnRemove()`**。`IModule` 的方法是 `OnAwake / OnStart / OnUpdate / OnLateUpdate / OnRemove / OnApplicationQuit`，不是 `OnDestroy`。写成 `void OnDestroy()`（或 private）不会实现 `IModule.OnRemove`，接口又有空默认实现，编译器不报错，方法永远不会被 GF 调用。
+2. **订阅放在 `OnAwake`**。`OnAwake` 由 GF 在显式注册时主动调用，不依赖 Unity 消息顺序。
 3. **用命名方法订阅，不要用 lambda**。lambda 每次求值都是新委托，退订时 `-=` 匹配不上。
 4. **模块只访问自己的数据中心**。通过 `DataManager.X` 属性获取，不要缓存实例。
-5. **模块逻辑走 `OnUpdate` / `OnLateUpdate`**，默认 0.1s 逻辑帧；不要用 Unity 的 `Update()` 做业务逻辑。Render 才允许每帧。
+5. **模块逻辑走 `OnUpdate` / `OnLateUpdate`**，默认 0.1s 逻辑帧；不要使用 Unity 的 `Update()` 做业务逻辑。Render 才允许每帧。
 6. **模块不直接引用其他模块的具体类**。跨模块协作交给 Bond；确实需要依赖时，依赖接口并由 Bond 注入或组合。
 7. **对外只暴露业务事件**。DataCenter 的事件在模块里转发，视图不要直接订阅 DataCenter。
 8. **可移植性**：模块内不要 `using` 其他模块的命名空间，不要引用 `Assets/Example`。
-9. **纯逻辑模块必须有无参构造**：`GF.CreateModule<T>()` / `GF.GetModule<T>()` 的自动创建路径依赖 `new()` 或 `Type.GetConstructor(Type.EmptyTypes)`。需要外部依赖时，通过 Bond 调用 `Init(...)` 注入，不要在构造函数里访问 GF。
+9. **所有自动创建的模块必须有无参构造**：`GF.CreateModule<T>()` / `GF.GetModule<T>()` 的自动创建路径依赖 `new()` 或 `Type.GetConstructor(Type.EmptyTypes)`。需要外部依赖时，通过 `Init(...)` 注入，不要在构造函数里访问 GF。
 10. **日志走 `GF.Log / GF.LogWarning / GF.LogError`**：它们受 `GF.debugMode` 控制，发布版可以整体关闭；不要直接 `Debug.Log`。
 
-> ⚠️ **MonoBehaviour 模块有两套销毁入口**：GF 调用的是接口方法 `IModule.OnRemove()`；随后销毁 GameObject 时 Unity 还会发一次 `OnDestroy` 消息，退出播放时 `DispatchModuleDestroy()` 也可能与 Unity 消息重叠。两处都要清理时，必须**幂等**，共用同一个清理方法：
->
-> ```csharp
-> private bool _disposed;
->
-> public void OnRemove() => Cleanup();     // IModule，GF 调用
-> private void OnDestroy() => Cleanup();   // Unity 消息
->
-> private void Cleanup()
-> {
->     if (_disposed) return;
->     _disposed = true;
->     Data.OnCapacityChanged -= HandleCapacityChanged;
->     OnCapacityChanged = null;
-> }
-> ```
->
-> 纯逻辑模块只实现 `OnRemove()` 即可，没有 Unity 消息。
+模块只实现 `OnRemove()` 清理即可，没有 Unity `OnDestroy()` 等第二套生命周期入口。GF 的 `CreateModule / GetModule / RegisterModule` 会拒绝 MonoBehaviour 模块。
 
 ### 第 5 步：在 `DataManager` 注册数据中心
 
@@ -426,17 +394,16 @@ public class InventoryFlow : IFlow
 
 | 方式 | 存储 key | 生命周期 | 适用场景 |
 |---|---|---|---|
-| 场景挂载 + `AutoRegisterSceneModules()` | `module.InterfaceType` | 自动 `OnAwake` + `OnStart` | 需要 Inspector 引用的场景模块 |
-| `GF.CreateModule<T>()` | `module.InterfaceType` | 自动创建实例并触发 | Flow 的单模块管理、Bond 的跨层步骤或其他实际使用者显式创建 |
-| `GF.RegisterModule<T>(instance)` | `typeof(T)` | 触发 | 非场景实例；注意 key 与自动注册不同 |
-| `GF.GetModule<T>()` | 通过「具体类型 → 接口」反查 | 不存在时自动创建 | Flow / Module / Bond / Render / UI 按职责获取 |
-| `GF.RemoveModule<T>()` | 通过反查 | 触发 `IModule.OnRemove()`，销毁 GameObject | Flow 的单模块清理、Bond 封装的组合清理或全局服务清理 |
-| `GF.ClearAllModules()` | 全部 | 逆序触发 `IModule.OnRemove()` | 框架级场景清理 |
-| 退出播放 / 场景卸载 | 全部 | `DispatchModuleDestroy()` 逆序触发 `IModule.OnRemove()` | 自动 |
+| `GF.CreateModule<T>()` | `module.InterfaceType` | 自动创建普通 C# 实例并触发 | Flow 的单模块管理、Bond 的跨层步骤或其他实际使用者显式创建 |
+| `GF.RegisterModule<T>(instance)` | `typeof(T)` | 触发 | 注册已有普通 C# 实例；注意 key 与 Create / Get 路径不同 |
+| `GF.GetModule<T>()` | 通过「具体类型 → 接口」反查 | 不存在时自动创建普通 C# 实例 | Flow / Module / Bond / Render / UI 按职责获取 |
+| `GF.RemoveModule<T>()` | 通过反查 | 触发 `IModule.OnRemove()` | Flow 的单模块清理、Bond 封装的组合清理或全局服务清理 |
+| `GF.ClearAllModules()` | 全部 | 逆序触发 `IModule.OnRemove()` | 框架级清理 |
+| 退出播放 / GF 销毁 | 全部 | `DispatchModuleDestroy()` 逆序触发 `IModule.OnRemove()` | 自动 |
 
 必须记住：
 
-1. **场景模块让它自动注册，不要再手写 `RegisterModule`**，否则可能得到两条记录并重复执行生命周期。
+1. **所有模块都是普通 C# 类，不得继承 `MonoBehaviour` 或挂载到场景**；`CreateModule / GetModule / RegisterModule` 会拒绝 MonoBehaviour 模块，GF 不再提供场景自动注册。
 2. **获取用具体类型**：`GF.GetModule<UnitManager>()`；业务接口不继承 `IModule`，不能作为泛型参数。
 3. **`Priority` 只在同一个逻辑帧内决定顺序**，数字越小越先执行。
 4. **模块 API 的位置不等于调用权限**：GF 提供底层能力，Flow 可以管理单个模块；多模块协作和模块与 Render / UI 的组合必须由 Bond 封装。
@@ -462,7 +429,7 @@ public class InventoryFlow : IFlow
 - `<Domain>DataCenter` 的语义方法
 
 ## 生命周期
-- 场景自动注册、Flow 的单模块管理，还是由哪个 Bond 步骤执行跨层准备和清理
+- 由 GF 显式创建 / 注册、Flow 的单模块管理，还是由哪个 Bond 步骤执行跨层准备和清理
 - 依赖哪个数据中心；不得依赖其他业务模块
 
 ## Bond / Flow 接入
@@ -493,7 +460,8 @@ public class InventoryFlow : IFlow
 - [ ] 数据只在 `Id == -1` 时入册，没有绕过基类直接改 `datas` 的 key
 - [ ] 需要通知的变化都有 typed 事件，事件命名 `OnXxx`
 - [ ] 接口只暴露视图 / Flow / Bond 真正需要的能力
-- [ ] Manager 实现 `IModule`，`InterfaceType` 指向正确的业务接口
+- [ ] Manager 是实现 `IModule` 的普通 C# 类，`InterfaceType` 指向正确的业务接口
+- [ ] Manager 没有继承 `MonoBehaviour`，也没有作为组件挂载到场景或预制体
 - [ ] 生命周期方法都是 `public`，销毁钩子写的是 `OnRemove()`
 - [ ] 订阅在 `OnAwake`，用命名方法，在 `OnRemove()` 成对退订；清理逻辑幂等
 - [ ] 动手前已检查内置模块，没有重复实现已有能力
@@ -505,7 +473,7 @@ public class InventoryFlow : IFlow
 - [ ] Bond 封装了模块间和模块与 Render / UI 间的组合逻辑，且没有实现流程切换
 - [ ] Flow 只包含步骤编排、单模块管理、Bond 调用和流程切换，没有多模块协作或 Render / UI 细节
 - [ ] Flow 的自定义方法只用于流程切换，事件在 `Exit()` 成对退订
-- [ ] 场景模块没有重复 `RegisterModule`
+- [ ] 模块通过 `CreateModule / GetModule / RegisterModule` 显式管理，没有依赖场景自动扫描
 - [ ] `Doc/README.md` 已写，成员名与代码一致
 - [ ] Unity 编译通过，Play 后模块只注册一次、生命周期日志正常
 - [ ] 模块单独复制到空项目时不会引用其他业务模块
@@ -522,8 +490,8 @@ public class InventoryFlow : IFlow
 | 把模块相关公共方法放进 PM | PM 再次膨胀为业务上帝类 | 单领域方法放 Module，跨模块/跨层方法放 Bond |
 | 在 Render/UI 里 `new XxxManager()` | 模块不受 GF 管理，生命周期失效 | 按职责使用 `GF.GetModule<XxxManager>()` 或 Bond |
 | `GF.GetModule<IInventoryManager>()` | 泛型约束不满足，编译失败 | 用具体类型 |
-| 场景模块 + 手写 `RegisterModule` | 同一模块两条记录，生命周期重复 | 只保留自动注册 |
-| 把 `OnDestroy()` 当成 `IModule` 销毁钩子 | GF 的清理不会执行 | 写 `public void OnRemove()`；Unity 消息另行幂等处理 |
+| 模块继承 `MonoBehaviour` 或挂载到场景 | 混入两套生命周期，GF 会拒绝创建或注册 | 改为普通 C# 类；Unity 消息和场景对象交给 Render |
+| 把 `OnDestroy()` 当成 `IModule` 销毁钩子 | GF 的清理不会执行 | 写 `public void OnRemove()` |
 | 在 Unity `Awake` 里订阅数据中心 | 时序未定义 | 移到 `OnAwake` |
 | lambda 订阅但不保存委托 | 无法退订 | 命名方法 + 成对 `-=` |
 | 缓存 `DataManager.X` | `PreWarm` 替换实例后引用失效 | 每次用属性取 |

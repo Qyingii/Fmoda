@@ -47,10 +47,10 @@ Render / UI → Bond          （需要复用的跨模块、跨层交互）
 
 | 层 | 位置 | 职责 |
 |---|---|---|
-| GF | `Assets/FModa/Architecture/Global/GF.cs` | 单例 + `DontDestroyOnLoad`、0.1s 逻辑帧、模块与 Bond 的注册/获取、场景 `IModule` 自动注册、`Spawn/Despawn` |
+| GF | `Assets/FModa/Architecture/Global/GF.cs` | 单例 + `DontDestroyOnLoad`、0.1s 逻辑帧、普通 C# 模块与 Bond 的注册/获取、`Spawn/Despawn` |
 | Flow | `Assets/FModa/Architecture/Flows/` | 全局只有一个 `CurrentFlow`；编排步骤、直接管理单个模块、调用 Bond 并控制流程切换；自定义方法只允许实现流程切换 |
 | Bond | `Assets/FModa/Architecture/Bond/`、业务 `Bond/` | 可复用的模块间及模块与 Render / UI 间的粘合；可访问模块、渲染和 UI，不负责切换流程 |
-| Module | `Assets/FModa/Modules/` | 业务规则与业务事件；实现 `IModule`；只有模块可以访问数据中心 |
+| Module | `Assets/FModa/Modules/` | 普通 C# 类；业务规则与业务事件；实现 `IModule`；只有模块可以访问数据中心 |
 | DataCenter | `Assets/FModa/Architecture/Data/` | 运行时状态 `Dictionary<long,T>`，在 `DataManager` 注册；不写业务规则 |
 | Render / UI | `Assets/FModa/Architecture/Renders`、`UI`、`Example/Scripts` | 表现与输入转发；不直接访问 `DataManager`；跨层组合逻辑交给 Bond |
 
@@ -60,7 +60,7 @@ Render / UI → Bond          （需要复用的跨模块、跨层交互）
 - Bond 用 `GF.GetBond<ConcreteBond>()` 获取，不存在时自动创建并按具体类型复用；需要显式创建时用 `GF.CreateBond<T>()`。
 - **Flow 可以直接创建、获取、调用和移除单个模块**。多模块协作，以及模块与 Render / UI 的组合交互必须封装进 Bond；Flow 不直接操作视图细节。
 - **流程切换代码只能在 Flow 中实现**。Bond / Module / Render / UI 只能发事件或返回结果，由 Flow 自己调用 `GF.flow.SwitchFlow` / `SwitchSceneAndFlow`。
-- 场景中挂载的模块会被 `AutoRegisterSceneModules()` 自动注册；不要再手写 `RegisterModule`，否则生命周期跑两遍。
+- **模块必须是普通 C# 类，不得继承 `MonoBehaviour`，也不得挂载到场景中**。通过 `GF.GetModule / CreateModule / RegisterModule` 显式管理；GF 不再扫描或自动注册场景模块，Unity 消息和场景表现由 Render 负责。
 - `IModule` 生命周期方法必须 `public`；销毁钩子是 `OnRemove()`（不是 `OnDestroy`）。订阅放在 `OnAwake`，用命名方法，并在 `OnRemove()`/`Exit` 成对退订。
 - 不要缓存 `DataManager.X` 到字段：`DataManager.PreWarm()` 会整体替换实例。
 - 当前 `DataCenter<T>` **没有** `OnDataAdded / OnDataRemoved / OnCleared`；不要订阅不存在的事件。

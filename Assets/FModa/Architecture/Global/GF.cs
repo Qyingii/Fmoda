@@ -80,9 +80,6 @@ public class GF : MonoBehaviour
         //初始化流程管理器
         flow = new FlowManager();
 
-        //扫描场景，自动注册已挂载在 GameObject 上的 IModule 组件（如 RAManager）
-        AutoRegisterSceneModules();
-
         //扫描场景，自动获取UIManager
         ui = FindObjectOfType<UIManager>();
 
@@ -186,13 +183,13 @@ public class GF : MonoBehaviour
     }
 
     /// <summary>
-    /// 创建并注册模块（模块需实现 IModule 声明自己的接口类型）。
+    /// 创建并注册普通 C# 模块（模块需实现 IModule 声明自己的接口类型）。
     /// 由模块的 <see cref="IModule.InterfaceType"/> 自动匹配接口。
-    /// 若类型继承 MonoBehaviour，自动创建 GameObject 挂载。
     /// </summary>
     public static T CreateModule<T>(int priority = -1) where T : class, IModule, new()
     {
         var module = CreateModuleInstance<T>();
+        if (module == null) return null;
         return (T)RegisterModuleByType(module.InterfaceType, module, priority);
     }
 
@@ -232,7 +229,7 @@ public class GF : MonoBehaviour
     }
 
     /// <summary>
-    /// 移除并销毁模块（触发 IModule.OnDestroy），T 为实现了 IModule 的具体类型。
+    /// 移除模块并触发 <see cref="IModule.OnRemove"/>，T 为实现了 IModule 的具体类型。
     /// </summary>
     public static void RemoveModule<T>() where T : class
     {
@@ -245,11 +242,8 @@ public class GF : MonoBehaviour
             if (module is IModule imod)
             {
                 try { imod.OnRemove(); }
-                catch (Exception e) { Debug.LogError($"[GF] 模块 {ifaceType.Name} OnDestroy 异常: {e}"); }
+                catch (Exception e) { Debug.LogError($"[GF] 模块 {ifaceType.Name} OnRemove 异常: {e}"); }
             }
-
-            // MonoBehaviour 模块 → 销毁其 GameObject
-            DestroyModuleObject(module);
 
             _moduleMap.Remove(ifaceType);
             _priorityMap.Remove(ifaceType);
@@ -260,20 +254,19 @@ public class GF : MonoBehaviour
     }
 
     /// <summary>
-    /// 清除所有模块（场景切换时调用），逆序触发 IModule.OnDestroy。
+    /// 清除所有模块，逆序触发 <see cref="IModule.OnRemove"/>。
     /// </summary>
     public static void ClearAllModules()
     {
-        // 逆序销毁（先去重，避免同一对象被多个接口注册时重复销毁）
+        // 逆序清理（先去重，避免同一对象被多个接口注册时重复清理）
         var snapshot = _moduleMap.Values.Distinct().ToArray();
         for (int i = snapshot.Length - 1; i >= 0; i--)
         {
             if (snapshot[i] is IModule imod)
             {
                 try { imod.OnRemove(); }
-                catch (Exception e) { Debug.LogError($"[GF] Destroy 异常: {e}"); }
+                catch (Exception e) { Debug.LogError($"[GF] 模块 {imod.GetType().Name} OnRemove 异常: {e}"); }
             }
-            DestroyModuleObject(snapshot[i]);
         }
 
         _moduleMap.Clear();
@@ -282,7 +275,8 @@ public class GF : MonoBehaviour
         _cacheDirty = true;
         Debug.Log("[GF] 已清除所有模块");
     }
-
+    #endregion
+    #region 游戏对象管理
     /// <summary>
     /// 派生实例
     /// </summary>
@@ -351,40 +345,20 @@ public class GF : MonoBehaviour
         }
     }
 
-    // ── 内部：场景扫描 ──
+    #endregion
+    #region 内部
+
+    // ── 内部：创建普通 C# 模块实例 ──
 
     /// <summary>
-    /// 扫描场景中所有挂载了 IModule 的 MonoBehaviour，自动注册到模块系统。
-    /// 这样用户只需在场景中拖好组件、绑好引用，无需手动调用 RegisterModule。
-    /// </summary>
-    private static void AutoRegisterSceneModules()
-    {
-        // 注意：不能直接用 FindObjectsByType<IModule>，接口不能作为 Unity 类型参数
-        var allMBs = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.InstanceID);
-        foreach (var mb in allMBs)
-        {
-            if (mb == null) continue;
-            if (mb is IModule module && !_moduleMap.ContainsKey(module.InterfaceType))
-            {
-                Debug.Log($"[GF] 自动注册场景模块: {module.InterfaceType.Name} (挂载在 {mb.gameObject.name})");
-                RegisterModuleByType(module.InterfaceType, mb, module.Priority);
-            }
-        }
-    }
-
-    // ── 内部：创建模块实例（自动处理 MonoBehaviour 挂载）──
-
-    /// <summary>
-    /// 创建模块实例。若 T 继承 MonoBehaviour，自动创建 GameObject 并挂载。
+    /// 创建模块实例。模块不得继承 MonoBehaviour。
     /// </summary>
     private static T CreateModuleInstance<T>() where T : class, IModule, new()
     {
         if (typeof(MonoBehaviour).IsAssignableFrom(typeof(T)))
         {
-            var go = new GameObject(typeof(T).Name);
-            if (Instance != null)
-                go.transform.SetParent(Instance.transform);
-            return (T)(object)go.AddComponent(typeof(T));
+            Debug.LogError($"[GF] 模块 {typeof(T).Name} 不得继承 MonoBehaviour，请改为普通 C# 类");
+            return null;
         }
         return new T();
     }
@@ -396,28 +370,14 @@ public class GF : MonoBehaviour
     {
         if (typeof(MonoBehaviour).IsAssignableFrom(type))
         {
-            var go = new GameObject(type.Name);
-            if (Instance != null)
-                go.transform.SetParent(Instance.transform);
-            return go.AddComponent(type);
+            Debug.LogError($"[GF] 模块 {type.Name} 不得继承 MonoBehaviour，请改为普通 C# 类");
+            return null;
         }
         var ctor = type.GetConstructor(Type.EmptyTypes);
         if (ctor != null)
             return ctor.Invoke(null);
         Debug.LogError($"[GF] 类型 {type.Name} 没有无参构造，无法自动创建");
         return null;
-    }
-
-    /// <summary> 若模块是 MonoBehaviour 则销毁其 GameObject </summary>
-    private static void DestroyModuleObject(object module)
-    {
-        if (module is MonoBehaviour mb && mb.gameObject != null)
-        {
-            if (Application.isPlaying)
-                UnityEngine.Object.Destroy(mb.gameObject);
-            else
-                UnityEngine.Object.DestroyImmediate(mb.gameObject);
-        }
     }
 
     // ── 内部：按类型注册（公共入口）──
@@ -428,6 +388,12 @@ public class GF : MonoBehaviour
     /// </summary>
     private static object RegisterModuleByType(Type interfaceType, object module, int priority)
     {
+        if (module is MonoBehaviour)
+        {
+            Debug.LogError($"[GF] 模块 {module.GetType().Name} 不得继承 MonoBehaviour，注册已拒绝");
+            return null;
+        }
+
         if (_moduleMap.TryGetValue(interfaceType, out var existing))
         {
             Debug.LogWarning($"[GF] 模块 {interfaceType.Name} 已注册，跳过");
@@ -520,7 +486,7 @@ public class GF : MonoBehaviour
         for (int i = _sortedModules.Count - 1; i >= 0; i--)
         {
             try { _sortedModules[i].OnRemove(); }
-            catch (Exception e) { Debug.LogError($"[GF] 模块 {_sortedModules[i].GetType().Name} OnDestroy 异常: {e}"); }
+            catch (Exception e) { Debug.LogError($"[GF] 模块 {_sortedModules[i].GetType().Name} OnRemove 异常: {e}"); }
         }
     }
 

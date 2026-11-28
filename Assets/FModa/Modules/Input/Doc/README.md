@@ -7,6 +7,7 @@
 
 ## 使用方法
 - 具体看`Assets\FModa\Modules\Input\Interface\IInputManager.cs`，这里包含所有可用方法
+你需要在`InputInit`中配置按键，然后使用输入管理器来订阅或轮询
 主要有两种使用方法：轮询和事件
 ### 轮询
 - 轮询方法会返回一个布尔值，表示当前帧是否按下该键
