@@ -4,7 +4,7 @@ using FModa.Enum;
 
 namespace FModa.Data
 {
-    /// <summary>导出过滤。条目 id 只用于选择当前运行时数据，不会写入存档。</summary>
+    /// <summary>导出过滤。条目 id 用于选择数据，并作为 sourceId 写入存档供导入重建引用。</summary>
     public sealed class DataExportOptions
     {
         /// <summary>null 表示全部已注册中心；空集合表示不导出任何中心。</summary>
@@ -23,7 +23,7 @@ namespace FModa.Data
         /// <summary>按存档中的 centerCode 过滤；null 表示全部，空集合表示不导入。</summary>
         public IReadOnlyCollection<int> CenterCodes { get; set; }
 
-        /// <summary>Replace 和 Append 都会忽略旧 id，根据数据顺序重新发号。</summary>
+        /// <summary>Replace 和 Append 都根据数据顺序重新发号，并生成 sourceId → 新 id 的导入映射。</summary>
         public DataImportMode Mode { get; set; } = DataImportMode.Replace;
     }
 

@@ -11,8 +11,8 @@ namespace FModa.Data
     ///   bit 50..0   本地 id，51 位，1 ~ 2,251,799,813,685,247
     ///
     /// Code 由 DataManager 按注册顺序自动分配，只保证当前运行时的中心隔离。
-    /// 存档不保存条目 id；Replace 和 Append 导入都会重新发号，因此外部系统不得把
-    /// 运行时 id 当作跨进程、跨存档的稳定业务标识。
+    /// 存档用 sourceId 记录导出时的 id 以重建引用，但不保存计数器；Replace 和 Append
+    /// 导入都会重新发号，因此外部系统不得把运行时 id 当作跨进程、跨存档的稳定业务标识。
     /// </summary>
     public static class DataCenterId
     {

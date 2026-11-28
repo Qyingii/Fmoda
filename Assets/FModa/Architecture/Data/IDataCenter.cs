@@ -9,7 +9,7 @@ using FModa.Data;
 ///    Init 分配当前运行时的 CenterCode，无需再维护 DataCenterCodes 或 CreateRegistry。
 /// 3. 只有模块可以访问数据中心；Render / UI 一律通过模块。
 ///
-/// id 是运行时句柄：存档只保存数据内容，不保存条目 id；Replace 和 Append 都重新发号。
+/// id 是运行时句柄：存档保存 sourceId 供导入重建引用；Replace 和 Append 都重新发号。
 /// 基类没有 OnDataAdded / OnDataRemoved / OnCleared，需要通知时在子类或模块中显式定义。
 /// </summary>
 public interface IDataCenter

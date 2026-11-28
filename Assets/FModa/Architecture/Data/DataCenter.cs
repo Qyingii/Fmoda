@@ -13,7 +13,7 @@ namespace FModa.Data
     /// id 规则：
     ///   - 每个数据中心的 Code 由 DataManager 在注册时自动分配，仅用于当前运行时的 id 隔离
     ///   - 存储 key 是「Code + 本地自增 id」合成的 long，位布局见 DataCenterId
-    ///   - 存档不保存条目 id，导入时统一重新发号
+    ///   - 存档保存 sourceId 用于重建引用，但不保存计数器；导入时统一重新发号
     ///
     /// id 保护：
     ///   - 数据只有在未入册（Id = -1）时才能 AddData，避免同一实例被两个中心反复改号
@@ -275,8 +275,17 @@ namespace FModa.Data
         void IDataCenterSaveTarget.CopyFrom(IDataCenterSaveTarget source)
             => CopyRuntimeState(source);
 
-        void IDataCenterSaveTarget.Import(DataCenterSave snapshot)
+        IReadOnlyList<DataIdMapping> IDataCenterSaveTarget.Import(DataCenterSave snapshot)
             => ImportSnapshot(snapshot);
+
+        void IDataCenterSaveTarget.RemapImportedReferences(DataIdRemapContext context)
+        {
+            foreach (var data in importedData)
+                RemapImportedReferences(data, context);
+            importedData.Clear();
+        }
+
+        private readonly List<T> importedData = new();
 
         /// <summary>导出完整快照，或只导出 itemIds 指定的当前运行时条目。</summary>
         private DataCenterSave ExportSnapshot(IReadOnlyCollection<long> itemIds)
@@ -310,6 +319,7 @@ namespace FModa.Data
 
                 snapshot.items.Add(new DataItemSave
                 {
+                    sourceId = pair.Key,
                     data = SerializeData(pair.Value),
                 });
             }
@@ -345,10 +355,12 @@ namespace FModa.Data
             RebuildAfterRestore();
         }
 
-        /// <summary>按文件顺序导入数据；Replace 与 Append 都通过 AddData 重新分配 id。</summary>
-        private void ImportSnapshot(DataCenterSave snapshot)
+        /// <summary>按文件顺序重新发号，并记录 sourceId → 新 id 供跨中心引用修复。</summary>
+        private IReadOnlyList<DataIdMapping> ImportSnapshot(DataCenterSave snapshot)
         {
             var items = ValidateSnapshotItems(snapshot);
+            var mappings = new List<DataIdMapping>(items.Count);
+
             foreach (var item in items)
             {
                 var data = DeserializeData(item.data);
@@ -361,20 +373,37 @@ namespace FModa.Data
                     throw new InvalidDataException(
                         $"数据中心 Code {CenterCode} 导入数据时没有分配新的尾部 id；" +
                         "存档导入不允许静默合并到已有条目");
+
+                mappings.Add(new DataIdMapping(item.sourceId, newId));
+                importedData.Add(data);
             }
+
+            return mappings;
         }
 
         private static IReadOnlyList<DataItemSave> ValidateSnapshotItems(DataCenterSave snapshot)
         {
             if (snapshot == null)
                 throw new InvalidDataException("存档数据中心快照为空");
+            if (!DataCenterId.IsValidCenterCode(snapshot.centerCode))
+                throw new InvalidDataException($"存档中心 Code {snapshot.centerCode} 非法");
             if (snapshot.items == null)
                 throw new InvalidDataException($"数据中心类型 {snapshot.centerType} 缺少 items");
 
+            var sourceIds = new HashSet<long>();
             foreach (var item in snapshot.items)
             {
                 if (item == null || item.data == null)
                     throw new InvalidDataException($"数据中心类型 {snapshot.centerType} 包含空条目");
+                if (!DataCenterId.BelongsTo(item.sourceId, snapshot.centerCode)
+                    || !DataCenterId.IsValidLocalId(DataCenterId.Local(item.sourceId)))
+                {
+                    throw new InvalidDataException(
+                        $"条目 sourceId {item.sourceId} 不属于存档中心 Code {snapshot.centerCode}，或本地 id 非法");
+                }
+                if (!sourceIds.Add(item.sourceId))
+                    throw new InvalidDataException(
+                        $"数据中心类型 {snapshot.centerType} 重复包含 sourceId {item.sourceId}");
             }
 
             return snapshot.items;
@@ -404,6 +433,14 @@ namespace FModa.Data
 
         /// <summary>导入前校验；子类可拒绝会被自身 AddData 合并的业务键。</summary>
         protected virtual void ValidateImportedData(T data) => ValidateSaveData(data);
+
+        /// <summary>
+        /// 所有中心完成重新发号后调用。只处理本次导入的数据，Append 中的已有数据不会进入这里。
+        /// 子类在此显式声明哪些 long 字段或 long 集合是其他条目的 id。
+        /// </summary>
+        protected virtual void RemapImportedReferences(T data, DataIdRemapContext context)
+        {
+        }
 
         /// <summary>复制当前运行时状态后重建子类额外索引。</summary>
         protected virtual void RebuildAfterRestore()

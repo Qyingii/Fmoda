@@ -10,12 +10,12 @@ namespace FModa.Data
 {
     /// <summary>
     /// 数据管理器：按具体类型自动注册和获取数据中心，并提供数据中心存档。
-    /// 条目 id 只属于当前运行时；存档不保存 id，Replace 和 Append 都重新发号。
+    /// 存档保存 sourceId 用于重建引用；Replace 和 Append 都重新发号。
     /// </summary>
     public static class DataManager
     {
         private const string SaveFormat = "FModa.DataCenterSave";
-        private const int CurrentSaveVersion = 2;
+        private const int CurrentSaveVersion = 3;
 
         private static readonly JsonSerializerSettings SaveJsonSettings = new()
         {
@@ -74,7 +74,7 @@ namespace FModa.Data
 
         #region 导出与导入
 
-        /// <summary>将当前已注册的数据中心保存为 JSON；不会保存条目 id 或本地计数器。</summary>
+        /// <summary>将当前已注册的数据中心保存为 JSON；保存 sourceId 用于引用映射，但不保存本地计数器。</summary>
         public static DataSaveResult ExportToFile(string path, DataExportOptions options = null)
         {
             string fullPath = path;
@@ -146,6 +146,7 @@ namespace FModa.Data
                     return new DataImportResult(true, fullPath, null, codes);
 
                 var pending = new List<PendingImport>(requests.Count);
+                var idMappings = new Dictionary<int, Dictionary<long, long>>();
                 foreach (var request in requests)
                 {
                     var current = request.Current;
@@ -155,11 +156,22 @@ namespace FModa.Data
                     if (mode == DataImportMode.Append)
                         candidate.CopyFrom(current);
 
-                    candidate.Import(request.Source);
+                    var importedMappings = candidate.Import(request.Source);
+                    var centerMappings = new Dictionary<long, long>(importedMappings.Count);
+                    foreach (var mapping in importedMappings)
+                        centerMappings.Add(mapping.SourceId, mapping.NewId);
+                    idMappings.Add(request.Source.centerCode, centerMappings);
+
                     pending.Add(new PendingImport(current.GetType(), candidate));
                     codes.Add(current.CenterCode);
                 }
 
+                // 所有中心完成发号后统一修复引用；此阶段仍只修改候选实例。
+                var remapContext = new DataIdRemapContext(idMappings);
+                foreach (var item in pending)
+                    item.Center.RemapImportedReferences(remapContext);
+
+                // 所有导入及引用修复成功后才能替换当前实例。
                 foreach (var item in pending)
                     DataCenters[item.CenterType] = (IDataCenter)item.Center;
 

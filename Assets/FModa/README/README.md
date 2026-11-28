@@ -273,11 +273,26 @@ var result = DataManager.ExportToFile(path, new DataExportOptions
 
 - 数据中心通过 `DataManager.Get<T>()` 或对应的强类型属性按需自动注册，不再维护 `DataCenterCodes` 和 `CreateRegistry()`。
 - CenterCode 由注册顺序分配，只用于当前运行时的 id 隔离；不能作为跨进程或跨版本的稳定类型标识。
-- 磁盘存档不保存条目 id 或计数器。`Replace` 和 `Append` 都按文件中的数据顺序重新发号，不提供新旧 id 映射。
-- `Replace` 整体替换选中中心；`Append` 保留现有条目的运行时 id，再将导入数据追加到尾部。
+- v3 存档为每条数据保存导出时的 `sourceId`，但不保存本地计数器，`data` 内也不保存 `IData.Id`。`sourceId` 只用于本次导入重建引用，不是跨存档稳定业务标识。
+- `Replace` 和 `Append` 都按文件中的数据顺序重新发号，并在导入期间生成 `sourceId → 新 id` 映射；不需要在磁盘上额外保存映射表。
+- `Replace` 整体替换选中中心；`Append` 保留现有条目的运行时 id，再将导入数据追加到尾部。引用修复只处理本次导入的数据，已有数据的引用不变。
+- 数据中心的 `long` 字段或 `long` 集合如果保存其他条目的 id，必须重写 `RemapImportedReferences` 显式修复。必需引用使用 `context.Remap(sourceId)`，可选引用使用 `context.TryRemap(...)` 并自行决定缺失时如何处理。
+- 被引用的中心或条目被过滤掉时，必需引用会修复失败；不要留下指向旧 id 的无效引用。
 - 导入前必须先通过 `Get<T>()` 注册目标数据中心；不会根据文件中的类型字符串创建未知类型。
-- 导入先在候选实例上完成全部解析和校验，再替换当前实例；失败时现有数据不变。
+- 导入先在候选实例上完成全部解析、重新发号和引用修复，再替换当前实例；任一步骤失败时现有数据不变。
+- 当前只支持 v3 存档，v1 / v2 会明确拒绝。
 - 多语言存档额外保存 `customKeys`；导入重复语种会失败，不会静默合并。随机中心只保存种子值，不能导入第二条状态。
+
+```csharp
+// PlayerData.cards 保存 CardData 的 id；PlayerDataCenter 不引用 CardDataCenter。
+protected override void RemapImportedReferences(
+    PlayerData data,
+    DataIdRemapContext context)
+{
+    for (int i = 0; i < data.cards.Count; i++)
+        data.cards[i] = context.Remap(data.cards[i]);
+}
+```
 - 存档不包含模块私有状态、场景对象、语言包文件、输入配置或 PlayerPrefs。导入后的模块与视图同步由 Bond 负责。
 
 ```csharp

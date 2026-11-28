@@ -322,8 +322,21 @@ public static InventoryDataCenter Inventory => Get<InventoryDataCenter>();
 - `PreWarm()` 会重置所有已注册中心并保留当前 Code；未注册中心仍在首次 `Get<T>()` 时创建。
 - **模块里不要缓存 `DataManager.X` 或 `Get<T>()` 的结果**：`PreWarm()` 和存档导入会替换实例。
 - 子类若维护额外索引，应重写 `RebuildAfterRestore`；需要拒绝导入时重写 `ValidateImportedData`；特殊序列化字段使用 `SerializeData / DeserializeData`。
-- 存档导出支持当前 `CenterCodes` 和 `ItemIdsByCenter`。磁盘不保存条目 id 或计数器，`Replace / Append` 都重新发号，没有 `IdMappings`。
+- 存档导出支持当前 `CenterCodes` 和 `ItemIdsByCenter`。v3 为每条数据保存 `sourceId`，但不保存计数器；`Replace / Append` 都重新发号，并在导入期间生成 `sourceId → 新 id` 映射。
 - 导入通过 `centerType` 匹配当前已注册类型；目标类型未注册时导入失败，不会根据文件字符串任意创建类型。
+- 数据中心的引用字段必须在 `RemapImportedReferences` 中显式修复。该钩子只处理本次导入的数据，Append 中已有数据保持原 id 和原引用；必需引用用 `Remap`，可选引用用 `TryRemap` 自行处理缺失情况。
+- 必需引用的目标中心或条目未参与导入时，整次导入失败，当前数据不变。当前只支持 v3，v1 / v2 不兼容。
+
+```csharp
+// PlayerDataCenter 中修复 PlayerData.cards；不要为此引用 CardDataCenter。
+protected override void RemapImportedReferences(
+    PlayerData data,
+    DataIdRemapContext context)
+{
+    for (int i = 0; i < data.cards.Count; i++)
+        data.cards[i] = context.Remap(data.cards[i]);
+}
+```
 
 ### 第 6 步：Flow 管理单模块，Bond 封装多模块与跨层粘合
 
