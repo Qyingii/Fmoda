@@ -12,7 +12,7 @@ description: 在 FModa/ECMVC Unity 项目中新增或修改模块、Bond 或 Flo
 - 只有模块可以直接访问数据中心；
 - 生命周期由 `IModule` 定义，由 GF 派发，不依赖 Unity 消息顺序。
 
-Bond 和 Flow 不是模块的替代品：Bond 负责模块与其他模块、Render、UI 的可复用粘合；Flow 只负责按步骤调用 Bond，以及在自己内部实现流程切换。
+Bond 和 Flow 不是模块的替代品：Flow 负责步骤编排、单个模块的创建、初始化、调用和清理，并在自己内部实现流程切换；Bond 负责模块与其他模块、Render、UI 的可复用粘合。
 
 ---
 
@@ -28,8 +28,9 @@ Bond 和 Flow 不是模块的替代品：Bond 负责模块与其他模块、Rend
 | 会被两个及以上模块/视图使用的枚举 | **只放 `Global/GameEnum.cs`**（`FModa.Enum`） |
 | 只是一段特效、动画、跟随 | Render；场景对象 / 预制体走 `GF.sgo` |
 | 只是面板显示和按钮 | UI：继承 `UIBase`，预制体放 `Resources/UI`，用 `GF.ui.OpenUI` |
+| 创建、获取、初始化、调用或清理单个模块 | **Flow** 或模块的实际使用者；不涉及其他模块和视图时无需 Bond |
 | 协调两个模块、转换模块数据、组合模块与 Render / UI | **Bond**，供所有流程复用 |
-| 按顺序执行几个已经封装好的 Bond 步骤 | **Flow**；不在 Flow 内实现这些步骤的细节 |
+| 按顺序执行单模块操作和几个已经封装好的 Bond 步骤 | **Flow**；不在 Flow 内实现多模块或跨视图粘合的细节 |
 | 切换流程 | **只能在 Flow 中实现**；其他层通过事件或返回值提出请求 |
 | 需要拥有独立状态和业务规则，并被多个流程复用 | **模块**；如果只是复用跨层动作，则用 Bond，不要新造模块 |
 
@@ -365,61 +366,24 @@ public static InventoryDataCenter Inventory
 - **模块里不要缓存 `DataManager.X` 到字段**：`PreWarm()` 会整体替换实例，旧引用会变成孤儿。
 - 新增数据中心必须在这里注册，否则别处无法正常获取。
 
-### 第 6 步：用 Bond 封装粘合，由 Flow 编排步骤
+### 第 6 步：Flow 管理单模块，Bond 封装多模块与跨层粘合
 
-模块准备、模块间转换、实体生成和视图联动都放进 Bond。Flow 不直接获取或移除模块，只调用 Bond 的步骤：
-
-```csharp
-using System;
-using FModa.Bond;
-using FModa.Inventory;
-
-public class InventoryBond : IBond
-{
-    private IInventoryManager inventory;
-
-    public event Action OnClosed;
-
-    // 一个可复用的业务准备步骤
-    public void Prepare()
-    {
-        inventory = GF.GetModule<InventoryManager>();
-        inventory.Init();
-        inventory.OnClosed += HandleClosed;
-    }
-
-    // 与 Prepare 成对的业务清理步骤
-    public void Cleanup()
-    {
-        if (inventory == null) return;
-        inventory.OnClosed -= HandleClosed;
-        GF.RemoveModule<InventoryManager>();
-        inventory = null;
-    }
-
-    private void HandleClosed()
-    {
-        // Bond 只转发请求，绝不调用 GF.flow.SwitchFlow
-        OnClosed?.Invoke();
-    }
-}
-```
+只涉及一个模块时，Flow 可以直接获取、初始化、调用和移除它，无需为了单模块操作额外制造 Bond。若动作同时组合第二个模块或 Render / UI，则必须将组合步骤放入 Bond：
 
 ```csharp
 using System.Collections.Generic;
+using FModa.Inventory;
 
 public class InventoryFlow : IFlow
 {
-    private InventoryBond inventoryBond;
+    private IInventoryManager inventory;
 
     // 签名固定：lastFlow 是上一流程（首次启动为 null），list 是上一流程传来的数据
     public void Enter(IFlow lastFlow, List<object> list = null)
     {
-        inventoryBond = GF.GetBond<InventoryBond>();
-
-        // Flow 只排列步骤，不实现步骤细节
-        inventoryBond.Prepare();
-        inventoryBond.OnClosed += HandleClosed;
+        inventory = GF.GetModule<InventoryManager>();
+        inventory.Init();
+        inventory.OnClosed += HandleClosed;
     }
 
     public void Update()
@@ -429,8 +393,10 @@ public class InventoryFlow : IFlow
 
     public void Exit()
     {
-        inventoryBond.OnClosed -= HandleClosed;
-        inventoryBond.Cleanup();
+        if (inventory == null) return;
+        inventory.OnClosed -= HandleClosed;
+        GF.RemoveModule<InventoryManager>();
+        inventory = null;
     }
 
     // 唯一允许的自定义 Flow 方法：流程切换处理
@@ -443,14 +409,15 @@ public class InventoryFlow : IFlow
 
 规则：
 
-- **Bond 负责粘合**：可访问模块、Render、UI，封装模块间转换、实体生成、id 注入、UI 联动以及必要的业务初始化/清理。
-- **Flow 只负责步骤**：不得出现 `GF.GetModule / CreateModule / RemoveModule`，不得直接操作 Render / UI，不得编写与切换流程无关的自定义帮助方法。
-- `IFlow` 的 `Enter / Update / Exit` 是固定契约，必须全部实现；它们内部只排列步骤，不属于被禁止的业务帮助方法。
+- **Flow 可以管理单个模块**：允许 `GF.GetModule / CreateModule / RemoveModule`，也允许直接调用该模块的初始化和业务 API。
+- **Bond 负责粘合**：可访问模块、Render、UI，封装多模块协作、模块间转换、实体生成并联动视图、id 注入和 UI 刷新等组合步骤。
+- **Flow 不直接操作视图细节**：一旦模块操作需要与 Render / UI 组合，就将这部分放进 Bond，由 Flow 按顺序调用。
+- `IFlow` 的 `Enter / Update / Exit` 是固定契约，必须全部实现；它们内部可以排列单模块操作和 Bond 步骤，自定义方法仍只允许用于流程切换。
 - `GF.GetBond<T>()` 在不存在时自动创建，同一具体类型重复获取会复用；`GF.CreateBond<T>()` 可显式创建。需要外部依赖的 Bond 仍应提供无参构造。
 - Bond 被多个流程复用时，事件订阅、模块初始化和清理必须成对且幂等，避免上一个流程残留订阅。
 - **流程切换是死规则**：只有 Flow 能调用 `GF.flow.SwitchFlow / SwitchSceneAndFlow / SwitchSceneAndFlowAsync`。Bond、Module、Render、UI 只能发事件或返回结果。
 - `SwitchFlow<T>(this, list)` 会先调用当前流程的 `Exit()`，再以 `Enter(this, list)` 进入新流程；跨场景切换会等待场景加载后延迟执行。
-- Flow 订阅 Bond 事件也要用命名方法，并在 `Exit()` 退订。
+- Flow 订阅 Module 或 Bond 事件也要用命名方法，并在 `Exit()` 退订。
 - 全局同时只有一个 `GF.flow.CurrentFlow`，不要绕过 `FlowManager` 自己保存流程。
 
 ---
@@ -460,10 +427,10 @@ public class InventoryFlow : IFlow
 | 方式 | 存储 key | 生命周期 | 适用场景 |
 |---|---|---|---|
 | 场景挂载 + `AutoRegisterSceneModules()` | `module.InterfaceType` | 自动 `OnAwake` + `OnStart` | 需要 Inspector 引用的场景模块 |
-| `GF.CreateModule<T>()` | `module.InterfaceType` | 自动创建实例并触发 | Bond 或其他实际使用者显式创建；不要放在 Flow |
+| `GF.CreateModule<T>()` | `module.InterfaceType` | 自动创建实例并触发 | Flow 的单模块管理、Bond 的跨层步骤或其他实际使用者显式创建 |
 | `GF.RegisterModule<T>(instance)` | `typeof(T)` | 触发 | 非场景实例；注意 key 与自动注册不同 |
-| `GF.GetModule<T>()` | 通过「具体类型 → 接口」反查 | 不存在时自动创建 | Module / Bond / Render / UI 按职责获取；Flow 不使用 |
-| `GF.RemoveModule<T>()` | 通过反查 | 触发 `IModule.OnRemove()`，销毁 GameObject | Bond 封装的业务清理或全局服务清理；Flow 不直接调用 |
+| `GF.GetModule<T>()` | 通过「具体类型 → 接口」反查 | 不存在时自动创建 | Flow / Module / Bond / Render / UI 按职责获取 |
+| `GF.RemoveModule<T>()` | 通过反查 | 触发 `IModule.OnRemove()`，销毁 GameObject | Flow 的单模块清理、Bond 封装的组合清理或全局服务清理 |
 | `GF.ClearAllModules()` | 全部 | 逆序触发 `IModule.OnRemove()` | 框架级场景清理 |
 | 退出播放 / 场景卸载 | 全部 | `DispatchModuleDestroy()` 逆序触发 `IModule.OnRemove()` | 自动 |
 
@@ -472,7 +439,7 @@ public class InventoryFlow : IFlow
 1. **场景模块让它自动注册，不要再手写 `RegisterModule`**，否则可能得到两条记录并重复执行生命周期。
 2. **获取用具体类型**：`GF.GetModule<UnitManager>()`；业务接口不继承 `IModule`，不能作为泛型参数。
 3. **`Priority` 只在同一个逻辑帧内决定顺序**，数字越小越先执行。
-4. **模块 API 的位置不等于调用权限**：GF 提供底层能力，但 Flow 不得直接管理模块；业务性的创建、准备和清理由 Bond 封装。
+4. **模块 API 的位置不等于调用权限**：GF 提供底层能力，Flow 可以管理单个模块；多模块协作和模块与 Render / UI 的组合必须由 Bond 封装。
 
 ---
 
@@ -495,12 +462,12 @@ public class InventoryFlow : IFlow
 - `<Domain>DataCenter` 的语义方法
 
 ## 生命周期
-- 场景自动注册，还是由哪个 Bond 步骤准备和清理
+- 场景自动注册、Flow 的单模块管理，还是由哪个 Bond 步骤执行跨层准备和清理
 - 依赖哪个数据中心；不得依赖其他业务模块
 
 ## Bond / Flow 接入
-- 哪些跨层动作由哪个 Bond 封装
-- Flow 只列出调用顺序，不复制模块实现细节
+- 哪些单模块操作由 Flow 直接处理，哪些多模块或跨层动作由哪个 Bond 封装
+- Flow 只排列单模块操作和 Bond 步骤，不复制模块内部规则或跨层粘合细节
 
 ## 使用示例
 最小可运行代码。
@@ -525,7 +492,7 @@ public class InventoryFlow : IFlow
 - [ ] 对外查询用 `TryGetData`，id 失效时不继续操作
 - [ ] 数据只在 `Id == -1` 时入册，没有绕过基类直接改 `datas` 的 key
 - [ ] 需要通知的变化都有 typed 事件，事件命名 `OnXxx`
-- [ ] 接口只暴露视图 / Bond 真正需要的能力
+- [ ] 接口只暴露视图 / Flow / Bond 真正需要的能力
 - [ ] Manager 实现 `IModule`，`InterfaceType` 指向正确的业务接口
 - [ ] 生命周期方法都是 `public`，销毁钩子写的是 `OnRemove()`
 - [ ] 订阅在 `OnAwake`，用命名方法，在 `OnRemove()` 成对退订；清理逻辑幂等
@@ -536,7 +503,7 @@ public class InventoryFlow : IFlow
 - [ ] 模块内只通过 `DataManager.X` 属性访问数据中心，没有缓存
 - [ ] 模块不引用其他模块的具体类，跨模块动作由 Bond 完成
 - [ ] Bond 封装了模块间和模块与 Render / UI 间的组合逻辑，且没有实现流程切换
-- [ ] Flow 没有 `GetModule / CreateModule / RemoveModule` 和 Render / UI 细节，只调用 Bond 步骤
+- [ ] Flow 只包含步骤编排、单模块管理、Bond 调用和流程切换，没有多模块协作或 Render / UI 细节
 - [ ] Flow 的自定义方法只用于流程切换，事件在 `Exit()` 成对退订
 - [ ] 场景模块没有重复 `RegisterModule`
 - [ ] `Doc/README.md` 已写，成员名与代码一致
@@ -549,7 +516,7 @@ public class InventoryFlow : IFlow
 
 | 反模式 | 后果 | 正确做法 |
 |---|---|---|
-| Flow 直接创建、获取、移除模块 | Flow 重新变成模块管理器和上帝类 | 把业务准备与清理封装进 Bond，Flow 只调用步骤 |
+| Flow 同时协调多个模块，或直接操作 Render / UI | Flow 重新变成跨层粘合者和上帝类 | 多模块与跨层组合迁入 Bond；单模块管理可留在 Flow |
 | Flow 编写卡牌/单位转换、实体生成或 UI 刷新方法 | 其他流程无法复用，流程类越来越长 | 整体迁入 Bond |
 | Bond / Module / Render / UI 调用 `GF.flow.SwitchFlow` | 流程控制权泄漏，切换规则散落 | 发事件或返回结果，只在 Flow 中切换 |
 | 把模块相关公共方法放进 PM | PM 再次膨胀为业务上帝类 | 单领域方法放 Module，跨模块/跨层方法放 Bond |

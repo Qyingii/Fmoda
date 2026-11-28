@@ -32,14 +32,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 三条设计原则：
 
 1. **模块解耦**：模块可以整体搬到另一个项目而不报错。
-2. **顺序可控**：Flow 只编排步骤；模块生命周期由 GF / Bond / Priority 显式处理，不依赖 Unity 消息顺序。
+2. **顺序可控**：Flow 显式编排步骤，并可管理单个模块；模块生命周期由 GF / Flow / Bond / Priority 按职责显式处理，不依赖 Unity 消息顺序。
 3. **数据逻辑分离**：数据只描述状态，规则和事件在模块里。
 
 依赖方向：
 
 ```
 GF → Flow → Bond → Module → DataCenter → Data
-                 ├→ Render / UI
+      │        ├→ Render / UI
+      └→ Module（单模块管理）
 Render / UI → Module        （自身显示与输入转发；绝不直接访问 DataCenter）
 Render / UI → Bond          （需要复用的跨模块、跨层交互）
 ```
@@ -47,7 +48,7 @@ Render / UI → Bond          （需要复用的跨模块、跨层交互）
 | 层 | 位置 | 职责 |
 |---|---|---|
 | GF | `Assets/FModa/Architecture/Global/GF.cs` | 单例 + `DontDestroyOnLoad`、0.1s 逻辑帧、模块与 Bond 的注册/获取、场景 `IModule` 自动注册、`Spawn/Despawn` |
-| Flow | `Assets/FModa/Architecture/Flows/` | 全局只有一个 `CurrentFlow`；只按步骤调用 Bond、控制流程顺序；自定义方法只允许实现流程切换 |
+| Flow | `Assets/FModa/Architecture/Flows/` | 全局只有一个 `CurrentFlow`；编排步骤、直接管理单个模块、调用 Bond 并控制流程切换；自定义方法只允许实现流程切换 |
 | Bond | `Assets/FModa/Architecture/Bond/`、业务 `Bond/` | 可复用的模块间及模块与 Render / UI 间的粘合；可访问模块、渲染和 UI，不负责切换流程 |
 | Module | `Assets/FModa/Modules/` | 业务规则与业务事件；实现 `IModule`；只有模块可以访问数据中心 |
 | DataCenter | `Assets/FModa/Architecture/Data/` | 运行时状态 `Dictionary<long,T>`，在 `DataManager` 注册；不写业务规则 |
@@ -57,7 +58,7 @@ Render / UI → Bond          （需要复用的跨模块、跨层交互）
 
 - `GF.GetModule<ConcreteType>()`：业务接口不满足 `where T : class, IModule`，不能写 `GF.GetModule<IUnitManager>()`。
 - Bond 用 `GF.GetBond<ConcreteBond>()` 获取，不存在时自动创建并按具体类型复用；需要显式创建时用 `GF.CreateBond<T>()`。
-- **Flow 不创建、获取、移除模块，也不直接操作 Render / UI**。模块准备、实体生成、卡牌与单位转换、视图联动等粘合步骤全部封装进 Bond，Flow 只调用这些步骤。
+- **Flow 可以直接创建、获取、调用和移除单个模块**。多模块协作，以及模块与 Render / UI 的组合交互必须封装进 Bond；Flow 不直接操作视图细节。
 - **流程切换代码只能在 Flow 中实现**。Bond / Module / Render / UI 只能发事件或返回结果，由 Flow 自己调用 `GF.flow.SwitchFlow` / `SwitchSceneAndFlow`。
 - 场景中挂载的模块会被 `AutoRegisterSceneModules()` 自动注册；不要再手写 `RegisterModule`，否则生命周期跑两遍。
 - `IModule` 生命周期方法必须 `public`；销毁钩子是 `OnRemove()`（不是 `OnDestroy`）。订阅放在 `OnAwake`，用命名方法，并在 `OnRemove()`/`Exit` 成对退订。

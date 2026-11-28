@@ -1,4 +1,5 @@
 using FModa.Bond;
+using FModa.SeedRandom;
 using UnityEngine;
 
 namespace Conquer.Unit
@@ -55,6 +56,16 @@ namespace Conquer.Unit
                 hp = 100,
                 moveSpeed = 3,
             });
+        }
+
+        /// <summary>
+        /// 随机位置派生unitPoolPrefab
+        /// </summary>
+        /// <returns></returns>
+        public GameObject SpawnRandomunitPoolPrefab()
+        {
+            var random = GF.GetModule<SeedRandomManager>();
+            return GF.Spawn(GF.sgo.unitPoolPrefab, new Vector3(random.NextInt(-5, 5), random.NextInt(-5, 5), 0), Quaternion.identity);
         }
     }
 }

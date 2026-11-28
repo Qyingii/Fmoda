@@ -52,7 +52,7 @@ public class UnitHpPanel : UIBase
         if (inputManager.KeyDown("Spawn"))
         {
             //随机位置派生unitPoolPrefab
-            GF.Spawn(GF.sgo.unitPoolPrefab, new Vector3(UnityEngine.Random.Range(-5, 5), UnityEngine.Random.Range(-5, 5), 0), Quaternion.identity);
+            GF.GetBond<UnitBond>().SpawnRandomunitPoolPrefab();
         }
 
         if (inputManager.KeyDown("EndFlow"))

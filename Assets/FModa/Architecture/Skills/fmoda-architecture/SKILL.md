@@ -1,11 +1,11 @@
 ---
 name: fmoda-architecture
-description: FModa/ECMVC Unity 项目的架构地图与代码阅读指南。当需要理解项目分层、判断新代码应该放在哪一层、追踪功能链路或修改前确认现状时使用。重点约束 Bond 负责跨模块与跨层粘合、Flow 只编排步骤和切换流程、PM 只放与模块无关的纯静态工具方法。
+description: FModa/ECMVC Unity 项目的架构地图与代码阅读指南。当需要理解项目分层、判断新代码应该放在哪一层、追踪功能链路或修改前确认现状时使用。重点约束 Flow 编排步骤、管理单个模块和切换流程，Bond 负责跨模块与跨层粘合，PM 只放与模块无关的纯静态工具方法。
 ---
 
 # FModa 架构阅读指南
 
-本 skill 的目标是让后来者**先读懂、再动手**。项目采用「GF 提供全局入口 → Flow 编排步骤 → Bond 完成跨层粘合 → Module 独占数据 → Render/UI 负责表现」的结构。不要把 Flow 写成上帝类，也不要把 PM 写成业务公共方法集合。
+本 skill 的目标是让后来者**先读懂、再动手**。项目采用「GF 提供全局入口 → Flow 编排步骤并管理单个模块 → Bond 完成跨模块、跨层粘合 → Module 独占数据 → Render/UI 负责表现」的结构。不要把 Flow 写成上帝类，也不要把 PM 写成业务公共方法集合。
 
 > 本 skill 描述当前架构约束。代码会变，**永远以运行时代码和最新架构决定为准**；发现文档漂移时，应在同一次改动中修正文档。
 
@@ -23,9 +23,10 @@ GF（场景中的 GameManager，单例 + DontDestroyOnLoad）
 ├── 模块注册表：IModule 实例
 └── Bond 注册表：IBond 实例
 
-Flow ──只按步骤调用──> Bond ──组合──> Module ──唯一允许直接访问──> DataCenter<T> ──> Data
-                         ├──────────> Render
-                         └──────────> UI
+Flow ──按步骤调用──> Bond ──组合──> Module ──唯一允许直接访问──> DataCenter<T> ──> Data
+  │                    ├──────────> Render
+  │                    └──────────> UI
+  └────────单模块管理──────────────> Module
 
 Render / UI ──自身显示与输入转发──> Module
 Render / UI ──可复用的跨模块、跨层组合──> Bond
@@ -34,7 +35,7 @@ Render / UI ──可复用的跨模块、跨层组合──> Bond
 主要依赖方向：
 
 ```text
-Flow         → Bond
+Flow         → Module（单模块管理）/ Bond
 Bond         → Module / Render / UI
 Render / UI  → Module（自身业务）或 Bond（跨层组合）
 Module       → DataCenter → Data
@@ -45,7 +46,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 
 - `Render / UI → DataCenter`：视图直接读数据中心会绕过模块这一层。
 - `Module A → Module B 的具体实现`：模块之间不互相引用，跨模块协作交给 Bond。
-- `Flow → Module / Render / UI 的具体操作`：Flow 不创建、获取、移除模块，也不实现实体转换、生成、UI 刷新等粘合代码；这些全部放进 Bond。
+- `Flow → 多模块协作 / Render / UI 细节`：Flow 可以直接创建、获取、调用和移除单个模块；涉及多个模块或模块与 Render / UI 的组合交互时，必须放进 Bond。
 - `Bond / Module / Render / UI → 流程切换实现`：切换流程的实现代码只能位于 Flow。其他层只能发事件或返回结果。
 - `PM → Module / DataCenter / Bond / Flow / Render / UI`：PM 只放与这些层无关的纯静态工具方法。
 - `Data → 任何逻辑`：数据结构只存字段，不持有 MonoBehaviour、不查数据库、不调用模块。
@@ -53,7 +54,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 三条设计原则：
 
 1. **模块解耦**：模块可以整体搬到另一个项目而不报错。
-2. **顺序可控**：Flow 显式排列业务步骤；模块生命周期由 GF、Bond 中封装的步骤和 Priority 处理，不依赖 Unity 消息顺序。
+2. **顺序可控**：Flow 显式排列业务步骤；模块生命周期由 GF、Flow 和 Bond 按职责处理，并受 Priority 约束，不依赖 Unity 消息顺序。
 3. **数据逻辑分离**：数据只描述状态，规则和事件在模块里。
 
 ---
@@ -63,7 +64,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 | 层 | 应该负责 | 不应该负责 |
 |---|---|---|
 | **Bond** | 模块间协作；模块与 Render / UI 的组合；卡牌变单位、单位变卡牌；生成实体、注册数据、注入 id、同步视图等可复用步骤；必要时封装业务性的模块初始化与清理 | 决定整个流程顺序；实现流程切换；替代模块内部业务规则 |
-| **Flow** | 实现 `Enter / Update / Exit`；按顺序调用 Bond；订阅流程相关事件；在自己的切换处理方法中调用 `GF.flow.SwitchFlow` 等 API | 模块管理；跨层转换；Render / UI 细节；与切换无关的自定义帮助方法 |
+| **Flow** | 实现 `Enter / Update / Exit`；按顺序执行单模块操作并调用 Bond；直接创建、获取、初始化、调用和移除单个模块；订阅流程相关事件；在自己的切换处理方法中调用 `GF.flow.SwitchFlow` 等 API | 多模块协作；跨层转换；Render / UI 细节；与切换无关的自定义帮助方法 |
 | **PM** | 数值计算、纯格式化、无状态算法等静态工具方法 | 访问模块或数据中心；操作实体和视图；流程控制；任何模块相关的公共业务方法 |
 
 **“多个流程都要用”不意味着放进 PM。** 如果方法涉及模块、实体、Render 或 UI，应放 Bond；只有与这些概念完全无关的纯工具函数才放 PM。
@@ -152,7 +153,8 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 | 全局配置、可调参数、常量、静态只读表 | **只放 `Global/GameConfig.cs`**，通过 `GF.config` 读取 |
 | 会被增删改、需要按 id 查询的运行时状态 | `DataCenter<T>` + `IData` |
 | 单个业务领域的规则、状态转换、业务事件 | `Module`（Manager），先确认内置模块没有同类能力 |
-| 多个已经封装好的 Bond 步骤的先后顺序、流程切换 | `Flow` |
+| 单个模块的创建、获取、初始化、调用和移除 | `Flow`，或其他实际使用者；不涉及多模块和视图时无需 Bond |
+| 单模块操作与多个已经封装好的 Bond 步骤的先后顺序、流程切换 | `Flow` |
 | 模块间协作、模块与 Render / UI 协作、卡牌与单位转换、生成实体并同步视图 | **Bond**，通过 `GF.GetBond<T>()` 复用 |
 | 每帧动画、输入轮询、Transform 操作 | `Render` |
 | 面板、按钮、文本刷新 | `UIBase` 子类，通过 `GF.ui.OpenUI` 打开 |
@@ -161,7 +163,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 | 与模块无关的纯计算、纯格式化、无状态算法 | **只放 `Global/PM.cs`** |
 | 会被两个及以上模块/视图使用的枚举 | **只放 `Global/GameEnum.cs`** |
 
-判断口诀：**单领域规则进 Module；跨模块、跨层组合进 Bond；步骤顺序和流程切换进 Flow；纯工具进 PM；数据进 DataCenter；表现进 Render/UI。**
+判断口诀：**单领域规则进 Module；单模块管理可进 Flow；跨模块、跨层组合进 Bond；步骤顺序和流程切换进 Flow；纯工具进 PM；数据进 DataCenter；表现进 Render/UI。**
 
 ---
 
@@ -177,9 +179,9 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 
 | 旧说法或旧示例 | 当前事实 / 规则 | 你应该怎么做 |
 |---|---|---|
-| Flow 负责启动/销毁模块、模块间数据交换 | GF 提供底层模块生命周期；可复用业务准备、清理和跨层协作由 Bond 封装；Flow 只调用步骤 | 不要在 Flow 写 `GetModule / CreateModule / RemoveModule` 或视图操作；迁入 Bond |
-| 当前 `ExampleFlow.cs` 仍含 `CreateModule / RemoveModule`，`UnitBond` 与 `Units` 的个别注释仍称 Flow 为注册者 | 这些是新分层前的代码与注释残留，不是继续效仿的规范 | 后续将模块管理调用迁入 Bond，并把注释中的注册者改为 Bond；文档仍按新职责编写 |
-| 跨模块协作写在 Flow | 跨模块协作统一放 Bond | Flow 只保留调用顺序 |
+| Flow 负责启动/销毁模块、模块间数据交换 | GF 提供底层模块生命周期；Flow 可以管理单个模块；多模块与跨层协作由 Bond 封装 | 单模块管理可留在 Flow；多模块或视图粘合迁入 Bond |
+| 此前文档误把 `ExampleFlow.cs` 的 `CreateModule / RemoveModule` 也列为待迁移残留 | 这些是允许的单模块管理，不需要迁移；`UnitBond` 与 `Units` 的注释应与实际注册者一致 | 保留合法调用，按实际注册者修正注释；lambda 未退订是另一个独立问题 |
+| 跨模块协作写在 Flow | 跨模块协作统一放 Bond | Flow 只保留单模块管理和组合步骤的调用顺序 |
 | 公共方法都放 PM | PM 只放与模块无关的纯静态工具方法 | 模块相关公共方法放对应模块或 Bond |
 | 文档使用 `GF.flowManager`、`GF.uiManager` | 实际字段是 `GF.flow`、`GF.ui`、`GF.pool`、`GF.config`、`GF.sgo` | 使用实际字段 |
 | 旧文档说数据中心有 `OnDataAdded / OnDataRemoved / OnCleared` | 当前 `DataCenter<T>` 没有这三个事件 | 需要时在具体 DataCenter 中显式定义 |
@@ -198,11 +200,11 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 1. **归属**：改动属于 Data / DataCenter / Module / Bond / Flow / Render / UI 哪一层？
 2. **是否已存在**：是否已有内置模块或 Bond 能复用，避免并行系统？
 3. **唯一写入者**：状态由哪个模块写？跨模块动作是否由 Bond 协调，而没有制造第二个状态拥有者？
-4. **Flow 纯度**：Flow 是否只调用 Bond 和实现流程切换，没有模块管理、转换或视图细节？
+4. **Flow 纯度**：Flow 是否只包含步骤编排、单模块管理、Bond 调用和流程切换，没有多模块协作或视图细节？
 5. **Bond 边界**：跨模块、跨层代码是否可复用且集中在 Bond？Bond 是否没有实现流程切换？
 6. **PM 纯度**：方法是否完全不依赖模块、数据中心、流程、Bond 和视图？
 7. **跨边界事件**：事件定义在哪里？谁订阅、谁退订？
-8. **生命周期**：是场景自动注册、GF 底层管理，还是 Bond 中封装的业务初始化和清理？
+8. **生命周期**：是场景自动注册、GF 底层管理、Flow 的单模块管理，还是 Bond 中封装的跨层初始化和清理？
 9. **可移植性**：模块整体复制到另一个项目时，是否仍不引用其他业务模块或 `Assets/Example`？
 10. **视图入口**：UI 是否继承 `UIBase` 并走 `GF.ui.OpenUI`？场景对象是否走 `GF.sgo`？
 
@@ -210,7 +212,8 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 
 ## 8. 看到这些信号就停下来
 
-- Flow 出现 `GF.GetModule / CreateModule / RemoveModule`、`GF.Spawn`、`GF.sgo` 或具体 UI 操作：粘合越界，迁入 Bond。
+- Flow 出现 `GF.Spawn`、`GF.sgo` 或具体 UI 操作：视图粘合越界，迁入 Bond；`GF.GetModule / CreateModule / RemoveModule` 本身允许用于单模块管理。
+- Flow 同时协调多个模块：多模块粘合越界，迁入 Bond。
 - Flow 出现与流程切换无关的自定义转换、生成、刷新方法：上帝类信号，迁入 Bond。
 - Bond / Module / Render / UI 调用 `GF.flow.SwitchFlow`：违反死规则，改成事件或返回值，由 Flow 自己切换。
 - PM 出现模块类型、`GF.GetModule`、`DataManager`、Render / UI、实体转换：不是纯工具，迁到 Module 或 Bond。

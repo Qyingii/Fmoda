@@ -8,24 +8,25 @@
 - 跨层粘合复用
 
 ## 架构流程图
+直线：主要环节
+虚线：可选环节
 
 ```mermaid
 flowchart TD
     G[GF] -->|启动| F[Flow]
-    F -->|只按步骤调用| X[Bond]
-    X --> M[Module]
-    X --> R[Render]
-    X --> U[UI]
-    R -->|自身输入与显示| M
-    U -->|自身输入与显示| M
-    R -->|跨层组合| X
-    U -->|跨层组合| X
+    F -->|直接调用| M[Module]
+    F -->|直接调用| R
+    F -.->|使用粘合剂间接调用模块和渲染/UI| X[Bond]
+    X -.->|组合调用| M
+    X -.->|组合调用| R[Render/UI]
+    R -->|直接调用| M
+    R -.->|使用粘合剂间接调用模块| X
     M --> D[DataCenter]
     D --> A[Data]
 ```
 
 - **GF 与 Flow**：GF 启动第一个流程，全局有且只有一个 `CurrentFlow`。
-- **Flow 与 Bond**：Flow 只决定步骤顺序和流程切换，不管理模块，也不实现模块、Render、UI 之间的转换。
+- **Flow 与 Bond**：Flow 决定步骤顺序和流程切换，可以直接管理单个模块；多模块协作以及模块与 Render / UI 的组合交互由 Bond 实现。
 - **Bond 与其他层**：Bond 处理模块间及模块与 Render / UI 间的可复用交互，有权访问模块、渲染和 UI。
 - **Module 与 DataCenter**：只有模块可以直接访问数据中心，模块负责业务规则和业务事件。
 - **Render / UI**：自身输入和显示可以调用模块；涉及其他模块或其他视图的组合动作交给 Bond。
@@ -156,13 +157,13 @@ Modules/Network/
 - 使用命名方法订阅，并在 `OnRemove()` 成对退订。
 - MonoBehaviour 模块的 `OnRemove()` 与 Unity `OnDestroy()` 可能都执行，清理逻辑必须幂等。
 - 模块不直接引用其他模块的具体实现，跨模块协作交给 Bond。
-- 业务初始化可以由 Bond 调用模块的 `Init()`，Flow 不直接调用模块。
+- 只涉及一个模块时，Flow 可以直接调用模块的 `Init()`；初始化同时组合多个模块或 Render / UI 时，由 Bond 调用。
 
 ### 启动与清理
 
 场景挂载的模块由 GF 自动注册，不要再手写 `RegisterModule`。纯逻辑模块由实际使用者通过 `GF.GetModule<ConcreteManager>()` 获取，不存在时自动创建。
 
-如果模块准备和清理是某个业务阶段的一部分，应封装在 Bond 的 `Prepare / Cleanup` 等步骤中，Flow 只调用这些步骤。多语言等全局基础服务可以按需获取，不必随每个 Flow 移除。
+单模块的准备和清理由 Flow 或其他实际使用者直接处理；涉及多个模块或模块与 Render / UI 的组合准备和清理时，应封装在 Bond 的 `Prepare / Cleanup` 等步骤中。多语言等全局基础服务可以按需获取，不必随每个 Flow 移除。
 
 ---
 
@@ -190,36 +191,37 @@ GF.flow.StartFlow<ExampleFlow>();
 
 ### Flow 能做什么
 
-- 在 `Enter / Update / Exit` 中按顺序调用 Bond；
-- 订阅 Bond 的流程相关事件，并在 `Exit()` 退订；
+- 直接创建、获取、初始化、调用和移除单个模块；
+- 在 `Enter / Update / Exit` 中按顺序执行单模块操作并调用 Bond；
+- 订阅 Module 或 Bond 的流程相关事件，并在 `Exit()` 退订；
 - 在自定义切换处理方法中调用 `GF.flow.SwitchFlow` 或 `SwitchSceneAndFlow`；
 - 使用 `lastFlow` 和 `list` 决定后续步骤。
 
 ### Flow 不能做什么
 
-- 不使用 `GF.GetModule / CreateModule / RemoveModule` 管理模块；
+- 不在 Flow 中协调多个模块，或将模块操作与 Render / UI 组合；
 - 不直接操作 Render、UI 或 `GF.sgo`；
-- 不实现卡牌与单位转换、实体生成、数据交换、UI 刷新等粘合逻辑；
+- 不实现卡牌与单位转换、实体生成并联动视图、跨模块数据交换、UI 刷新等粘合逻辑；
 - 不添加与流程切换无关的自定义帮助方法。
 
 ```csharp
 public class TestFlow : IFlow
 {
-    private TestBond testBond;
+    private TestManager testManager;
 
     public void Enter(IFlow lastFlow, List<object> list = null)
     {
-        testBond = GF.GetBond<TestBond>();
-        testBond.Prepare();
-        testBond.OnFinished += HandleFinished;
+        testManager = GF.GetModule<TestManager>();
+        testManager.OnFinished += HandleFinished;
     }
 
     public void Update() { }
 
     public void Exit()
     {
-        testBond.OnFinished -= HandleFinished;
-        testBond.Cleanup();
+        testManager.OnFinished -= HandleFinished;
+        GF.RemoveModule<TestManager>();
+        testManager = null;
     }
 
     // 唯一允许的自定义方法：流程切换
@@ -375,24 +377,11 @@ using FModa.Bond;
 
 public class TestBond : IBond
 {
-    private TestManager test;
-
-    public void Prepare()
-    {
-        test = GF.GetModule<TestManager>();
-    }
-
     public long CreateUnitData()
     {
-        if (test == null) Prepare();
+        // Bond 负责 Render 发起的数据注册与后续视图绑定；模块获取可在此按需完成
+        var test = GF.GetModule<TestManager>();
         return test.Register(new TestData { moveSpeed = 3 });
-    }
-
-    public void Cleanup()
-    {
-        // 只有确需随业务阶段销毁时才移除；全局服务可保留
-        GF.RemoveModule<TestManager>();
-        test = null;
     }
 }
 ```
@@ -442,20 +431,23 @@ using System.Collections.Generic;
 
 public class TestFlow : IFlow
 {
-    private TestBond testBond;
+    private TestManager testManager;
 
     public void Enter(IFlow lastFlow, List<object> list = null)
     {
         GF.Log("进入 TestFlow");
-        testBond = GF.GetBond<TestBond>();
-        testBond.Prepare();
+
+        // 只管理一个模块，Flow 直接获取，无需额外的 Prepare Bond
+        testManager = GF.GetModule<TestManager>();
     }
 
     public void Update() { }
 
     public void Exit()
     {
-        testBond.Cleanup();
+        // 只有确需随流程销毁时才移除；全局服务可保留
+        GF.RemoveModule<TestManager>();
+        testManager = null;
         GF.Log("退出 TestFlow");
     }
 }

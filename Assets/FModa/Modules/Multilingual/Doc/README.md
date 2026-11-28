@@ -46,7 +46,7 @@ public static MultilingualDataCenter Multilingual => _multilingual ??= new Multi
 
 ## 启动方式
 
-多语言模块由实际需要它的 Bond 或视图通过 `GF.GetModule<MultilingualManager>()` 获取并初始化；Flow 不直接创建、获取或移除模块，只调用封装好的 Bond 步骤：
+多语言模块由实际需要它的 Flow、Bond 或视图通过 `GF.GetModule<MultilingualManager>()` 获取并初始化。只使用这一个模块时，Flow 可以直接获取并调用 `Init()`；如果初始化还需要组合其他模块或 Render / UI，则交给 Bond：
 
 ```csharp
 using FModa.Multilingual;
@@ -58,7 +58,7 @@ multilingual.Init();
 - `GF.GetModule<MultilingualManager>()` 不存在时自动创建并注册。
 - `Init()` 加载语言包、选择当前语种；重复调用幂等。
 - 如果忘记调用 `Init()`，第一次访问 `GetText` / `CurrentLanguageCode` 等 API 时会懒初始化。
-- 多语言是全局基础服务，通常**不随 Flow 退出而移除**；确需移除时，由 Bond 封装对应业务清理步骤并调用 `GF.RemoveModule<MultilingualManager>()`，不要在 Flow 中直接移除。
+- 多语言是全局基础服务，通常**不随 Flow 退出而移除**；确需移除且只清理这个模块时，Flow 可以直接调用 `GF.RemoveModule<MultilingualManager>()`；如果清理同时组合其他模块或视图，则由 Bond 封装。
 
 如果要在初始化前改配置，必须在 `Init()` 之前设置：
 

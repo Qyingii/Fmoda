@@ -28,7 +28,7 @@ description: FModa/ECMVC 项目的强制规则入口。在阅读、设计、修�
 1. 改动属于 Data / DataCenter / Module / Bond / Flow / Render / UI 哪一层？
 2. `Assets/FModa/Modules/` 里有没有现成模块能直接解决？（先查再写）
 3. 这份状态的唯一写入者是谁？变化如何广播给视图？
-4. 谁创建、初始化、销毁它？是场景自动注册、GF 底层生命周期，还是 Bond 封装的业务步骤？
+4. 谁创建、初始化、销毁它？是场景自动注册、Flow 的单模块管理，还是 Bond 封装的跨模块 / 跨层业务步骤？
 5. 跨模块、跨 Module / Render / UI 的复用逻辑是否已放进 Bond，而不是堆进 Flow 或 PM？
 6. 视图是否绕过了模块，直接访问 `DataManager`？
 7. 流程切换实现是否只存在于 Flow？
@@ -40,7 +40,7 @@ description: FModa/ECMVC 项目的强制规则入口。在阅读、设计、修�
 
 - 视图（Render / UI）直接访问 `DataManager`
 - 模块直接引用其他模块的具体实现
-- 在 Flow 中创建、获取、移除模块，或直接实现模块间、模块与 Render / UI 间的粘合逻辑（交给 Bond）
+- 在 Flow 中实现多模块协作或模块与 Render / UI 间的粘合逻辑（交给 Bond；Flow 可以直接管理单个模块）
 - 在 Bond / Module / Render / UI 中实现流程切换（只能在 Flow 中实现）
 - 在 PM 中放与模块、数据中心、流程、Bond 或视图相关的方法（PM 只放纯静态工具方法）
 - 场景模块已经自动注册，又手写 `RegisterModule`

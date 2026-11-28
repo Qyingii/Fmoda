@@ -17,7 +17,7 @@
 | 数据层（`IData` + `DataCenter<T>`） | `fmoda-module-design` 第 1、2 步；注册在 `DataManager`（第 5 步） |
 | 模块层（接口 + Manager + 生命周期） | `fmoda-module-design` 第 3、4 步 |
 | Bond（模块间、模块与 Render / UI 间的可复用粘合） | `fmoda-module-design` 第 6 步；通过 `GF.GetBond<T>()` 获取 |
-| Flow（只编排步骤、切换流程） | `fmoda-module-design` 第 6 步；`IFlow.Enter(IFlow lastFlow, List<object> list)` |
+| Flow（步骤编排、单模块管理、切换流程） | `fmoda-module-design` 第 6 步；`IFlow.Enter(IFlow lastFlow, List<object> list)` |
 | Render（场景表现、输入轮询） | `fmoda-view-ui` 第 1 节；场景对象/预制体走 `GF.sgo` |
 | UI（面板） | `fmoda-view-ui` 第 2 节；**必须继承 `UIBase`**，走 `GF.ui.OpenUI` |
 | 对象池 | `fmoda-view-ui` 第 4 节；`Poolable` + `GF.Spawn / GF.Despawn` |

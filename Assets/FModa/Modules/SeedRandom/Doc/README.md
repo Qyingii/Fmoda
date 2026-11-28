@@ -29,7 +29,7 @@ Assets/FModa/Modules/SeedRandom/
 
 ## 获取模块
 
-在 Module / Bond / Render / UI 中按职责获取具体类型：
+在 Flow / Module / Bond / Render / UI 中按职责获取具体类型：
 
 ```csharp
 using FModa.SeedRandom;
@@ -37,7 +37,7 @@ using FModa.SeedRandom;
 var random = GF.GetModule<SeedRandomManager>();
 ```
 
-Flow 不直接获取模块；如果随机设置属于流程的一个业务步骤，应由 Bond 封装，Flow 只调用该 Bond 步骤。
+Flow 可以直接获取 `SeedRandomManager` 并调用 `SetSeed` 等单模块 API；只有随机步骤同时协调多个模块或 Render / UI 时，才需要由 Bond 封装。
 
 ## 当前种子序列
 

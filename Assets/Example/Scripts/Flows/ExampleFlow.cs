@@ -20,10 +20,7 @@ public class ExampleFlow : IFlow
         switchFlowBond = GF.GetBond<SwitchFlowBond>();
 
         //事件绑定
-        switchFlowBond.OnFlowEnd += ()=>
-        {
-            GF.flow.SwitchFlow<EndFlow>(this);
-        };
+        switchFlowBond.OnFlowEnd += End;
 
         //流程实际内容
         unitBond.SpawnUnit(new Vector3(-1, -1, 0), Quaternion.identity);
@@ -31,6 +28,7 @@ public class ExampleFlow : IFlow
 
     public void Exit()
     {
+        switchFlowBond.OnFlowEnd -= End;
         GF.RemoveModule<UnitManager>();//移除模块
         GF.Log("退出 ExampleFlow");
     }
@@ -38,5 +36,11 @@ public class ExampleFlow : IFlow
     public void Update()
     {
         
+    }
+
+    //进入结束流程
+    public void End()
+    {
+        GF.flow.SwitchFlow<EndFlow>(this);
     }
 }

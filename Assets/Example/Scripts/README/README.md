@@ -1,8 +1,8 @@
 ## 示例职责分布
 
-本示例对应的新 Bond / Flow / PM 职责边界如下。`ExampleFlow.cs` 中仍有少量模块管理旧调用，应视为待迁移残留，不要照抄：
+本示例对应的 Bond / Flow / PM 职责边界如下。`ExampleFlow.cs` 直接创建和移除示例模块，这是允许的单模块管理；涉及多个模块或模块与 Render / UI 联动的步骤仍由 Bond 完成：
 
-- `Flows/ExampleFlow.cs`：目标是只排列进入、退出和流程切换步骤，不在流程里实现模块管理、单位生成或视图联动。
+- `Flows/ExampleFlow.cs`：直接管理示例模块，排列进入、退出和流程切换步骤，不在流程里实现多模块协作、单位生成或视图联动。
 - `Bond/Unit/UnitBond.cs`：组合 `UnitManager`、单位 Render、`GF.Spawn` 和 `UnitHpPanel`，提供可复用的 `SpawnUnit` / `CreateUnitData` 步骤。
 - `Bond/SwitchFlow/SwitchFlowBond.cs`：只广播结束流程请求；真正的 `GF.flow.SwitchFlow<EndFlow>(this)` 仍由 Flow 实现。
 - `Modules/Unit/`：保存单位业务规则和数据访问。
@@ -29,7 +29,7 @@
 - `UnitHpPanel.OnEnable()` 驱动 `OnBind → OnRefresh`，订阅模块事件并做一次初始同步。
 - `Units.Start()` 获取单位与输入模块。如果生成方没有注入 id，则通过 `UnitBond.CreateUnitData()` 执行静态场景单位的兜底注册。
 
-因此，场景静态单位与 Bond 动态生成单位的注册时机不同，UI 初始刷新次数也可能不同。需要调整显示时，应修改 Bond 中可复用的生成／刷新步骤或 UI 自身绑定时机，**不要在 Flow 中新增单位注册、Render 操作或 UI 刷新方法**。
+因此，场景静态单位与 Bond 动态生成单位的注册时机不同，UI 初始刷新次数也可能不同。需要调整显示时，应修改 Bond 中可复用的生成／刷新步骤或 UI 自身绑定时机，**不要在 Flow 中展开涉及模块与 Render / UI 联动的注册、生成和刷新细节**。
 
 ## 框架用法
 
