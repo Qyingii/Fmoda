@@ -125,9 +125,7 @@ namespace FModa.Inventory
 {
     public class InventoryDataCenter : DataCenter<InventoryData>, IDataCenter
     {
-        // Code 由 DataManager.DataCenterCodes 统一分配；无参构造等价于 Code 0（旧行为）
-        public InventoryDataCenter() { }
-        public InventoryDataCenter(int centerCode) : base(centerCode) { }
+        // 保持公共无参构造；Code 由 DataManager 在自动注册时分配。
 
         /// <summary>容量变化时触发：(ownerId, newCapacity)</summary>
         public event Action<long, int> OnCapacityChanged;
@@ -175,9 +173,9 @@ namespace FModa.Inventory
 从 2026-11 起，`DataCenter<T>` 的存储 key 不再是一个裸自增数字，而是「数据中心 Code + 本地 id」合成的 `long`，位布局见 `Assets/FModa/Architecture/Data/DataCenterId.cs`：
 
 - Code 占高 12 位（0 ~ 4095），本地 id 占低 51 位；符号位恒为 0，`-1` 永远不是合法 id。
-- **每个数据中心必须在 `DataManager.DataCenterCodes` 占一个非零 Code**，并通过构造函数传入。Code 一旦发布到存档/网络就不得复用、不得改号。
-- Code 0 表示未分区，合成 id 等于本地 id，旧工程不传 Code 时行为完全不变。
-- 模块对外只传合成 id，不传本地 id；需要展示时用 `ToLocalId(id)`。
+- 数据中心保持公共无参构造，`DataManager.Get<T>()` 首次获取时自动调用 `Init` 分配非零 Code。
+- Code 只保证当前运行时内的中心隔离；注册顺序改变后允许不同，不作为存档或网络中的稳定类型标识。
+- 模块对外只传合成 id，不传本地 id；需要展示时用 `ToLocalId(id)`。运行时 id 不是跨存档稳定标识，导入后会重新分配。
 - 查询用 `TryGetData(id, out data)`；`GetData` 收到别的中心的 id 会打警告并返回 `null`。
 - `AddData` 只接受 `Id == -1` 的新数据；`RemoveData / Clear` 会把数据 Id 重置为 `-1`；`UpdateData` 不接受属于别的 Id 的数据。这层保护由基类完成，子类不要绕过它去直接改 `datas` 的 key。
 
@@ -310,32 +308,22 @@ Manager 的硬性规则：
 
 模块只实现 `OnRemove()` 清理即可，没有 Unity `OnDestroy()` 等第二套生命周期入口。GF 的 `CreateModule / GetModule / RegisterModule` 会拒绝 MonoBehaviour 模块。
 
-### 第 5 步：在 `DataManager` 注册数据中心
+### 第 5 步：通过 `DataManager` 自动注册数据中心
 
 `Assets/FModa/Architecture/Data/DataManager.cs`：
 
 ```csharp
-public static class DataCenterCodes
-{
-    public const int Unit = 1;
-    public const int Multilingual = 2;
-    public const int SeedRandom = 3;
-    public const int Inventory = 4;   // 新增中心先在这里占号
-}
-
-private static InventoryDataCenter _inventory;
-public static InventoryDataCenter Inventory
-    => _inventory ??= new InventoryDataCenter(DataCenterCodes.Inventory);
+public static InventoryDataCenter Inventory => Get<InventoryDataCenter>();
 ```
 
-- 懒加载属性是唯一入口，所有模块通过 `DataManager.Inventory` 访问。
-- **所有构造点（懒加载属性 + `PreWarm()`）必须传同一个 Code**，不要一处传、一处不传，否则会造出两段互不相认的 id。
-- 需要在启动时就准备好的数据中心，在 `PreWarm()` 里 `new` 一次，同样带上 Code。
-- **模块里不要缓存 `DataManager.X` 到字段**：`PreWarm()` 会整体替换实例，旧引用会变成孤儿。
-- 新增数据中心必须在这里注册，否则别处无法正常获取。
-- 新增中心还必须在 `DataManager.CreateRegistry()` 注册存档的获取、创建和替换委托；否则它不会进入通用存档。子类若维护额外索引或存在追加冲突，应重写 `RebuildAfterRestore / ValidateAppendData`，特殊序列化字段使用 `SerializeData / DeserializeData`。
-- 存档导出支持 `CenterCodes` 和 `ItemIdsByCenter`；导入默认 `Replace`，保留原 id 和 `lastLocalId`。`Append` 必须真正新增并重新发号，结果中的 `IdMappings` 交给上层处理引用，不能利用子类 `AddData` 静默合并。
-- `PreWarm()` 和存档导入都会替换中心实例，因此任何调用方都不能缓存 `DataManager.X`。
+也可以不使用强类型属性，直接调用 `DataManager.Get<InventoryDataCenter>()`。首次获取会自动执行 `Register<T>()`、调用 `Init` 并分配当前运行时的 CenterCode；同类型重复获取返回同一实例。
+
+- 数据中心必须有公共无参构造；不再维护 `DataCenterCodes`、手写字段或 `CreateRegistry()`。
+- `PreWarm()` 会重置所有已注册中心并保留当前 Code；未注册中心仍在首次 `Get<T>()` 时创建。
+- **模块里不要缓存 `DataManager.X` 或 `Get<T>()` 的结果**：`PreWarm()` 和存档导入会替换实例。
+- 子类若维护额外索引，应重写 `RebuildAfterRestore`；需要拒绝导入时重写 `ValidateImportedData`；特殊序列化字段使用 `SerializeData / DeserializeData`。
+- 存档导出支持当前 `CenterCodes` 和 `ItemIdsByCenter`。磁盘不保存条目 id 或计数器，`Replace / Append` 都重新发号，没有 `IdMappings`。
+- 导入通过 `centerType` 匹配当前已注册类型；目标类型未注册时导入失败，不会根据文件字符串任意创建类型。
 
 ### 第 6 步：Flow 管理单模块，Bond 封装多模块与跨层粘合
 
@@ -458,7 +446,7 @@ public class InventoryFlow : IFlow
 - [ ] 所有类在同一个命名空间，没有新增全局命名空间类型
 - [ ] 数据类只含数据，实现 `IData`
 - [ ] DataCenter 继承 `DataCenter<T>`，没有重复实现字典
-- [ ] 数据中心已在 `DataManager.DataCenterCodes` 占号，懒加载与 `PreWarm` 使用同一个 Code
+- [ ] 数据中心有公共无参构造，并通过 `DataManager.Get<T>()` 自动注册
 - [ ] 对外查询用 `TryGetData`，id 失效时不继续操作
 - [ ] 数据只在 `Id == -1` 时入册，没有绕过基类直接改 `datas` 的 key
 - [ ] 需要通知的变化都有 typed 事件，事件命名 `OnXxx`
@@ -499,7 +487,7 @@ public class InventoryFlow : IFlow
 | lambda 订阅但不保存委托 | 无法退订 | 命名方法 + 成对 `-=` |
 | 缓存 `DataManager.X` | `PreWarm` 替换实例后引用失效 | 每次用属性取 |
 | 直接返回内部 `Dictionary` | 调用方绕过事件改数据 | 返回拷贝、只读视图或查询方法 |
-| 数据中心 Code 不统一 | 跨中心串号 | 在 `DataCenterCodes` 占号，所有构造点统一传 |
+| 手动分配或缓存数据中心 Code | 自动注册顺序变化后跨中心串号 | 通过 `Get<T>()` 注册；Code 仅作当前运行时句柄 |
 | 视图和 Bond 重复 `Register` | 一个实体两条数据 | 只保留 Bond 一个注册写入者；静态场景兜底也复用 Bond |
 | 把 id 当小整数解析/硬编码 | 合成 id 生效后逻辑失效 | id 当不透明句柄，展示用 `ToLocalId` |
 | 模块直接 `GF.GetModule<OtherManager>()` | 模块耦合，无法单独搬运 | 交给 Bond 组合 |

@@ -64,7 +64,7 @@ namespace FModa.Multilingual
         public bool AutoDetectSystemLanguage { get; set; } = true;
 
         // 每次用属性取，绝不缓存：DataManager.PreWarm() 会整体替换实例。
-        private MultilingualDataCenter Data => DataManager.Multilingual;
+        private MultilingualDataCenter Data => DataManager.Get<MultilingualDataCenter>();
 
         public MultilingualManager()
         {

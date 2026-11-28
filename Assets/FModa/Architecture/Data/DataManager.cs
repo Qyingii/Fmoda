@@ -3,57 +3,78 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using Conquer.Unit;
 using FModa.Enum;
-using FModa.Multilingual;
-using FModa.SeedRandom;
 using Newtonsoft.Json;
 
 namespace FModa.Data
 {
     /// <summary>
-    /// 数据管理器：数据中心的统一注册入口，以及数据中心存档的导出入口。
-    /// 存档只处理 DataCenter 状态，不处理模块私有状态、场景对象或视图。
+    /// 数据管理器：按具体类型自动注册和获取数据中心，并提供数据中心存档。
+    /// 条目 id 只属于当前运行时；存档不保存 id，Replace 和 Append 都重新发号。
     /// </summary>
     public static class DataManager
     {
         private const string SaveFormat = "FModa.DataCenterSave";
-        private const int CurrentSaveVersion = 1;
+        private const int CurrentSaveVersion = 2;
 
         private static readonly JsonSerializerSettings SaveJsonSettings = new()
         {
             TypeNameHandling = TypeNameHandling.None,
         };
 
-        private static readonly Dictionary<int, DataCenterRegistration> Registry = CreateRegistry();
+        private static readonly Dictionary<Type, IDataCenter> DataCenters = new();
+        private static int dataCenterId = 1;
 
-        // 单位数据中心
-        private static UnitDataCenter _unit;
-        public static UnitDataCenter Unit => _unit ??= new UnitDataCenter(DataCenterCodes.Unit);
+        #region 数据中心注册和获取
 
-        // 多语言数据中心
-        private static MultilingualDataCenter _multilingual;
-        public static MultilingualDataCenter Multilingual
-            => _multilingual ??= new MultilingualDataCenter(DataCenterCodes.Multilingual);
-
-        // 带种子的随机数数据中心
-        private static SeedRandomDataCenter _seedRandom;
-        public static SeedRandomDataCenter SeedRandom
-            => _seedRandom ??= new SeedRandomDataCenter(DataCenterCodes.SeedRandom);
-
-        /// <summary>提前初始化全部数据中心；调用方仍须通过属性访问，不要缓存实例。</summary>
-        public static void PreWarm()
+        /// <summary>注册一个新的数据中心；同类型重复注册会失败，正常获取请使用 Get。</summary>
+        public static IDataCenter Register<T>() where T : IDataCenter, new()
         {
-            _unit = new UnitDataCenter(DataCenterCodes.Unit);
-            _multilingual = new MultilingualDataCenter(DataCenterCodes.Multilingual);
-            _seedRandom = new SeedRandomDataCenter(DataCenterCodes.SeedRandom);
+            if (DataCenters.ContainsKey(typeof(T)))
+                throw new InvalidOperationException($"数据中心 {typeof(T).FullName} 已注册");
+            if (dataCenterId > DataCenterId.MaxCenterCode)
+                throw new InvalidOperationException("数据中心数量已超出可用 Code 上限");
+
+            T instance = new T();
+            instance.Init(dataCenterId++);
+            DataCenters.Add(typeof(T), instance);
+            return instance;
         }
 
+        /// <summary>获取指定数据中心；首次访问时自动注册。</summary>
+        public static T Get<T>() where T : IDataCenter, new()
+        {
+            if (DataCenters.TryGetValue(typeof(T), out var dataCenter))
+                return (T)dataCenter;
+
+            return (T)Register<T>();
+        }
+
+        /// <summary>重置所有已注册中心并保留其当前 Code；未注册的中心仍保持按需创建。</summary>
+        public static void PreWarm()
+        {
+            var current = new List<IDataCenterSaveTarget>(DataCenters.Count);
+            foreach (var center in DataCenters.Values)
+                current.Add((IDataCenterSaveTarget)center);
+            current.Sort((a, b) => a.CenterCode.CompareTo(b.CenterCode));
+
+            var reset = new Dictionary<Type, IDataCenter>(DataCenters.Count);
+            foreach (var center in current)
+            {
+                var replacement = CreateCenter(center.GetType(), center.CenterCode);
+                reset.Add(center.GetType(), (IDataCenter)replacement);
+            }
+
+            DataCenters.Clear();
+            foreach (var pair in reset)
+                DataCenters.Add(pair.Key, pair.Value);
+        }
+
+        #endregion
+
         #region 导出与导入
-        /// <summary>
-        /// 将数据中心保存为 JSON。可通过 CenterCodes 和 ItemIdsByCenter 控制导出范围。
-        /// 本方法同步执行，应在主线程且没有数据变更的步骤中调用。
-        /// </summary>
+
+        /// <summary>将当前已注册的数据中心保存为 JSON；不会保存条目 id 或本地计数器。</summary>
         public static DataSaveResult ExportToFile(string path, DataExportOptions options = null)
         {
             string fullPath = path;
@@ -67,7 +88,6 @@ namespace FModa.Data
                 var centers = ResolveExportCenters(options);
                 var codes = new List<int>(centers.Count);
 
-                // 空选择是合法的无操作，不创建空存档覆盖旧文件。
                 if (centers.Count == 0)
                     return new DataSaveResult(true, fullPath, null, codes);
 
@@ -78,14 +98,14 @@ namespace FModa.Data
                     savedAtUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
                 };
 
-                foreach (var registration in centers)
+                foreach (var center in centers)
                 {
                     IReadOnlyCollection<long> itemIds = null;
                     if (options?.ItemIdsByCenter != null)
-                        options.ItemIdsByCenter.TryGetValue(registration.Code, out itemIds);
+                        options.ItemIdsByCenter.TryGetValue(center.CenterCode, out itemIds);
 
-                    save.centers.Add(registration.GetOrCreate().Export(itemIds));
-                    codes.Add(registration.Code);
+                    save.centers.Add(center.Export(itemIds));
+                    codes.Add(center.CenterCode);
                 }
 
                 string json = JsonConvert.SerializeObject(save, Formatting.Indented, SaveJsonSettings);
@@ -99,13 +119,12 @@ namespace FModa.Data
         }
 
         /// <summary>
-        /// 从 JSON 导入数据中心。Replace 保留原 id 并整体替换；Append 重新发号并追加。
-        /// 所有选中的中心都在候选实例上准备成功后才会替换当前实例，失败时内存不变。
+        /// 按数据中心类型匹配当前已注册中心，再根据文件中的数据顺序重新发号。
+        /// 所有候选中心准备成功后才替换当前实例，失败时现有数据不变。
         /// </summary>
         public static DataImportResult ImportFromFile(string path, DataImportOptions options = null)
         {
             string fullPath = path;
-            var emptyMappings = new Dictionary<int, IReadOnlyDictionary<long, long>>();
 
             try
             {
@@ -120,107 +139,67 @@ namespace FModa.Data
                 string json = File.ReadAllText(fullPath);
                 var save = JsonConvert.DeserializeObject<DataSaveFile>(json, SaveJsonSettings);
                 var fileCenters = ValidateAndIndexSave(save);
-                var centers = ResolveImportCenters(fileCenters, options);
-                var codes = new List<int>(centers.Count);
+                var requests = ResolveImportRequests(fileCenters, options);
+                var codes = new List<int>(requests.Count);
 
-                if (centers.Count == 0)
-                    return new DataImportResult(true, fullPath, null, codes, emptyMappings);
+                if (requests.Count == 0)
+                    return new DataImportResult(true, fullPath, null, codes);
 
-                var pending = new List<PendingImport>(centers.Count);
-                var mappings = mode == DataImportMode.Append
-                    ? new Dictionary<int, IReadOnlyDictionary<long, long>>()
-                    : emptyMappings;
-
-                foreach (var registration in centers)
+                var pending = new List<PendingImport>(requests.Count);
+                foreach (var request in requests)
                 {
-                    var source = fileCenters[registration.Code];
-                    var candidate = registration.Create();
-                    IReadOnlyDictionary<long, long> idMap = null;
+                    var current = request.Current;
+                    var candidate = CreateCenter(current.GetType(), current.CenterCode);
 
+                    // Append 先深拷贝当前运行时数据并保留其运行时 id，再为导入数据重新发号。
                     if (mode == DataImportMode.Append)
-                    {
-                        // 先复制当前中心，再在副本上追加；任何失败都不会触碰当前实例。
-                        candidate.Restore(registration.GetOrCreate().Export(null));
-                        idMap = candidate.Append(source);
-                        mappings.Add(registration.Code, idMap);
-                    }
-                    else
-                    {
-                        candidate.Restore(source);
-                    }
+                        candidate.CopyFrom(current);
 
-                    pending.Add(new PendingImport(registration, candidate));
-                    codes.Add(registration.Code);
+                    candidate.Import(request.Source);
+                    pending.Add(new PendingImport(current.GetType(), candidate));
+                    codes.Add(current.CenterCode);
                 }
 
                 foreach (var item in pending)
-                    item.Registration.Replace(item.Center);
+                    DataCenters[item.CenterType] = (IDataCenter)item.Center;
 
-                return new DataImportResult(true, fullPath, null, codes, mappings);
+                return new DataImportResult(true, fullPath, null, codes);
             }
             catch (Exception e)
             {
-                return new DataImportResult(false, fullPath, e.Message, Array.Empty<int>(), emptyMappings);
+                return new DataImportResult(false, fullPath, e.Message, Array.Empty<int>());
             }
         }
+
         #endregion
-
-        private static Dictionary<int, DataCenterRegistration> CreateRegistry()
+        #region 私有方法
+        private static List<IDataCenterSaveTarget> ResolveExportCenters(DataExportOptions options)
         {
-            var registry = new Dictionary<int, DataCenterRegistration>
-            {
-                {
-                    DataCenterCodes.Unit,
-                    new DataCenterRegistration(
-                        DataCenterCodes.Unit,
-                        () => (IDataCenterSaveTarget)Unit,
-                        () => new UnitDataCenter(DataCenterCodes.Unit),
-                        center => _unit = (UnitDataCenter)center)
-                },
-                {
-                    DataCenterCodes.Multilingual,
-                    new DataCenterRegistration(
-                        DataCenterCodes.Multilingual,
-                        () => (IDataCenterSaveTarget)Multilingual,
-                        () => new MultilingualDataCenter(DataCenterCodes.Multilingual),
-                        center => _multilingual = (MultilingualDataCenter)center)
-                },
-                {
-                    DataCenterCodes.SeedRandom,
-                    new DataCenterRegistration(
-                        DataCenterCodes.SeedRandom,
-                        () => (IDataCenterSaveTarget)SeedRandom,
-                        () => new SeedRandomDataCenter(DataCenterCodes.SeedRandom),
-                        center => _seedRandom = (SeedRandomDataCenter)center)
-                },
-            };
-
-            return registry;
-        }
-
-        /// <summary>
-        /// 根据 Code 排序并添加到 <see cref="result"/> 中。
-        /// </summary>
-        /// <param name="options"></param>
-        /// <returns></returns>
-        /// <exception cref="InvalidDataException"></exception>
-        private static List<DataCenterRegistration> ResolveExportCenters(DataExportOptions options)
-        {
-            var result = new List<DataCenterRegistration>();
-            var selected = new HashSet<int>();
-
-            if (options?.CenterCodes == null)
-            {
-                foreach (var pair in Registry)
-                    selected.Add(pair.Key);
-            }
-            else
+            var selectedCodes = new HashSet<int>();
+            if (options?.CenterCodes != null)
             {
                 foreach (int code in options.CenterCodes)
+                    selectedCodes.Add(code);
+            }
+
+            var result = new List<IDataCenterSaveTarget>();
+            var resultCodes = new HashSet<int>();
+            foreach (var center in DataCenters.Values)
+            {
+                var target = (IDataCenterSaveTarget)center;
+                if (options?.CenterCodes != null && !selectedCodes.Contains(target.CenterCode))
+                    continue;
+
+                result.Add(target);
+                resultCodes.Add(target.CenterCode);
+            }
+
+            if (options?.CenterCodes != null)
+            {
+                foreach (int code in selectedCodes)
                 {
-                    if (!Registry.ContainsKey(code))
-                        throw new InvalidDataException($"数据中心 Code {code} 未注册，无法导出");
-                    selected.Add(code);
+                    if (!resultCodes.Contains(code))
+                        throw new InvalidDataException($"数据中心 Code {code} 尚未注册，无法导出");
                 }
             }
 
@@ -228,12 +207,12 @@ namespace FModa.Data
             {
                 foreach (int code in options.ItemIdsByCenter.Keys)
                 {
-                    if (!selected.Contains(code))
+                    if (!resultCodes.Contains(code))
                         throw new InvalidDataException($"条目过滤包含未选中的数据中心 Code {code}");
                 }
             }
 
-            AddSortedRegistrations(selected, result);
+            result.Sort((a, b) => a.CenterCode.CompareTo(b.CenterCode));
             return result;
         }
 
@@ -250,57 +229,77 @@ namespace FModa.Data
                 throw new InvalidDataException("存档缺少 centers");
 
             var result = new Dictionary<int, DataCenterSave>();
+            var types = new HashSet<string>(StringComparer.Ordinal);
             foreach (var center in save.centers)
             {
-                if (center == null)
-                    throw new InvalidDataException("存档包含空的数据中心节点");
+                if (center == null || string.IsNullOrWhiteSpace(center.centerType))
+                    throw new InvalidDataException("存档包含空中心或缺少 centerType");
                 if (!result.TryAdd(center.centerCode, center))
                     throw new InvalidDataException($"存档重复包含数据中心 Code {center.centerCode}");
+                if (!types.Add(center.centerType))
+                    throw new InvalidDataException($"存档重复包含数据中心类型 {center.centerType}");
             }
 
             return result;
         }
 
-        private static List<DataCenterRegistration> ResolveImportCenters(
+        private static List<ImportRequest> ResolveImportRequests(
             Dictionary<int, DataCenterSave> fileCenters,
             DataImportOptions options)
         {
-            var selected = new HashSet<int>();
-
+            var selectedCodes = new List<int>();
             if (options?.CenterCodes == null)
             {
-                foreach (int code in fileCenters.Keys)
-                {
-                    if (!Registry.ContainsKey(code))
-                        throw new InvalidDataException($"存档包含未注册的数据中心 Code {code}");
-                    selected.Add(code);
-                }
+                selectedCodes.AddRange(fileCenters.Keys);
             }
             else
             {
+                var unique = new HashSet<int>();
                 foreach (int code in options.CenterCodes)
-                {
-                    if (!Registry.ContainsKey(code))
-                        throw new InvalidDataException($"数据中心 Code {code} 未注册，无法导入");
-                    if (!fileCenters.ContainsKey(code))
-                        throw new InvalidDataException($"存档不包含选中的数据中心 Code {code}");
-                    selected.Add(code);
-                }
+                    unique.Add(code);
+                selectedCodes.AddRange(unique);
+            }
+            selectedCodes.Sort();
+
+            var result = new List<ImportRequest>(selectedCodes.Count);
+            var targetTypes = new HashSet<Type>();
+            foreach (int code in selectedCodes)
+            {
+                if (!fileCenters.TryGetValue(code, out var source))
+                    throw new InvalidDataException($"存档不包含选中的数据中心 Code {code}");
+
+                var current = FindRegisteredCenter(source.centerType);
+                if (current == null)
+                    throw new InvalidDataException(
+                        $"数据中心类型 {source.centerType} 尚未注册；请先通过 DataManager.Get<T>() 获取该模块的数据中心");
+                if (!targetTypes.Add(current.GetType()))
+                    throw new InvalidDataException($"多个存档中心不能导入同一个运行时类型 {source.centerType}");
+
+                result.Add(new ImportRequest(current, source));
             }
 
-            var result = new List<DataCenterRegistration>(selected.Count);
-            AddSortedRegistrations(selected, result);
             return result;
         }
 
-        private static void AddSortedRegistrations(
-            HashSet<int> selected,
-            List<DataCenterRegistration> result)
+        private static IDataCenterSaveTarget FindRegisteredCenter(string centerType)
         {
-            var codes = new List<int>(selected);
-            codes.Sort();
-            foreach (int code in codes)
-                result.Add(Registry[code]);
+            foreach (var center in DataCenters.Values)
+            {
+                if (string.Equals(center.GetType().FullName, centerType, StringComparison.Ordinal))
+                    return (IDataCenterSaveTarget)center;
+            }
+
+            return null;
+        }
+
+        private static IDataCenterSaveTarget CreateCenter(Type centerType, int centerCode)
+        {
+            var instance = Activator.CreateInstance(centerType) as IDataCenter;
+            if (instance == null)
+                throw new InvalidDataException($"无法创建已注册的数据中心类型 {centerType.FullName}");
+
+            instance.Init(centerCode);
+            return (IDataCenterSaveTarget)instance;
         }
 
         private static void WriteSaveFile(string fullPath, string json)
@@ -341,45 +340,29 @@ namespace FModa.Data
                 throw;
             }
         }
-
-        private sealed class DataCenterRegistration
+    #endregion
+        private sealed class ImportRequest
         {
-            public readonly int Code;
-            public readonly Func<IDataCenterSaveTarget> GetOrCreate;
-            public readonly Func<IDataCenterSaveTarget> Create;
-            public readonly Action<IDataCenterSaveTarget> Replace;
+            public readonly IDataCenterSaveTarget Current;
+            public readonly DataCenterSave Source;
 
-            public DataCenterRegistration(
-                int code,
-                Func<IDataCenterSaveTarget> getOrCreate,
-                Func<IDataCenterSaveTarget> create,
-                Action<IDataCenterSaveTarget> replace)
+            public ImportRequest(IDataCenterSaveTarget current, DataCenterSave source)
             {
-                Code = code;
-                GetOrCreate = getOrCreate;
-                Create = create;
-                Replace = replace;
+                Current = current;
+                Source = source;
             }
         }
 
         private sealed class PendingImport
         {
-            public readonly DataCenterRegistration Registration;
+            public readonly Type CenterType;
             public readonly IDataCenterSaveTarget Center;
 
-            public PendingImport(DataCenterRegistration registration, IDataCenterSaveTarget center)
+            public PendingImport(Type centerType, IDataCenterSaveTarget center)
             {
-                Registration = registration;
+                CenterType = centerType;
                 Center = center;
             }
         }
-    }
-
-    /// <summary>数据中心 Code：显式、稳定、只增不改，不得复用或换绑类型。</summary>
-    public static class DataCenterCodes
-    {
-        public const int Unit = 1;
-        public const int Multilingual = 2;
-        public const int SeedRandom = 3;
     }
 }

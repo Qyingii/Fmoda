@@ -17,8 +17,6 @@ namespace FModa.Multilingual
     public class MultilingualDataCenter : DataCenter<LanguageData>, IDataCenter
     {
 
-        public MultilingualDataCenter(int centerCode) : base(centerCode) { }
-
         private readonly Dictionary<string, long> _codeToId =
             new(StringComparer.OrdinalIgnoreCase);
 
@@ -105,12 +103,12 @@ namespace FModa.Multilingual
                 throw new InvalidDataException("多语言存档包含 code 为空的语种数据");
         }
 
-        protected override void ValidateAppendData(LanguageData data)
+        protected override void ValidateImportedData(LanguageData data)
         {
             ValidateSaveData(data);
             if (_codeToId.ContainsKey(data.code))
                 throw new InvalidDataException(
-                    $"语种 {data.code} 已存在；追加导入不允许通过 AddData 静默合并语种");
+                    $"语种 {data.code} 已存在；存档导入不允许通过 AddData 静默合并语种");
         }
 
         protected override void RebuildAfterRestore()

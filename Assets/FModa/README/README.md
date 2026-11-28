@@ -257,39 +257,38 @@ Render / UI 不得直接访问 `DataManager`；Bond 也不直接读写数据中�
 
 ### 数据中心存档
 
-`DataManager.ExportToFile(path, options)` 使用 JSON 保存数据中心；`ImportFromFile(path, options)` 恢复数据。导出可通过 `CenterCodes` 选择中心，并通过 `ItemIdsByCenter` 精确选择各中心内的合成 id：
+`DataManager.ExportToFile(path, options)` 使用 JSON 保存当前已注册的数据中心；`ImportFromFile(path, options)` 按 `centerType` 匹配当前已注册类型并恢复数据。导出可通过当前运行时的 `CenterCodes` 和条目合成 id 精确过滤：
 
 ```csharp
+int unitCenterCode = DataManager.Unit.CenterCode;
 var result = DataManager.ExportToFile(path, new DataExportOptions
 {
-    CenterCodes = new[] { DataCenterCodes.Unit },
+    CenterCodes = new[] { unitCenterCode },
     ItemIdsByCenter = new Dictionary<int, IReadOnlyCollection<long>>
     {
-        [DataCenterCodes.Unit] = new[] { unitId },
+        [unitCenterCode] = new[] { unitId },
     },
 });
 ```
 
-- `CenterCodes = null` 表示全部中心；条目过滤未出现的中心导出全部条目，空条目集合表示只保存该中心状态和计数器。
-- `DataImportMode.Replace`：整体替换选中中心，保留文件中的原始 id 和 `lastLocalId`。
-- `DataImportMode.Append`：在尾部追加并重新发号；通过 `DataImportResult.IdMappings` 返回文件原 id → 新 id。条目内部的 id 引用不会自动改写。
-- 导入先在候选实例上完成全部解析、校验和索引重建，再替换当前实例；失败时现有数据不变。
-- 多语言存档会额外保存 `customKeys` 并重建语种索引；追加相同语种代码会失败，不会静默合并。
-- 随机模块只保存种子值，不保存 `System.Random` 的序列推进位置；已有种子状态时不能追加第二条。
-- 存档只覆盖 DataCenter，不包含模块私有状态、场景对象、语言包文件、输入配置或 PlayerPrefs。导入后的多模块和视图同步由 Bond 负责。
+- 数据中心通过 `DataManager.Get<T>()` 或对应的强类型属性按需自动注册，不再维护 `DataCenterCodes` 和 `CreateRegistry()`。
+- CenterCode 由注册顺序分配，只用于当前运行时的 id 隔离；不能作为跨进程或跨版本的稳定类型标识。
+- 磁盘存档不保存条目 id 或计数器。`Replace` 和 `Append` 都按文件中的数据顺序重新发号，不提供新旧 id 映射。
+- `Replace` 整体替换选中中心；`Append` 保留现有条目的运行时 id，再将导入数据追加到尾部。
+- 导入前必须先通过 `Get<T>()` 注册目标数据中心；不会根据文件中的类型字符串创建未知类型。
+- 导入先在候选实例上完成全部解析和校验，再替换当前实例；失败时现有数据不变。
+- 多语言存档额外保存 `customKeys`；导入重复语种会失败，不会静默合并。随机中心只保存种子值，不能导入第二条状态。
+- 存档不包含模块私有状态、场景对象、语言包文件、输入配置或 PlayerPrefs。导入后的模块与视图同步由 Bond 负责。
 
-导入示例：
 ```csharp
-// 整体替换，保留文件中的原始 ID
+// 整体替换并重新分配 ID
 var replace = DataManager.ImportFromFile(path);
 
-// 尾部追加，重新分配 ID
+// 保留现有数据，在尾部追加并为导入数据重新分配 ID
 var append = DataManager.ImportFromFile(path, new DataImportOptions
 {
     Mode = DataImportMode.Append,
 });
-
-var newId = append.IdMappings[DataCenterCodes.Unit][oldId];
 ```
 ---
 
@@ -398,12 +397,10 @@ public class TestDataCenter : DataCenter<TestData>
 }
 ```
 
-在 `DataManager` 注册数据中心，并按项目 id 规范分配非零 Code：
+在 `DataManager` 添加强类型入口，首次访问时自动注册并分配运行时 Code：
 
 ```csharp
-private static TestDataCenter _test;
-public static TestDataCenter Test
-    => _test ??= new TestDataCenter(DataCenterCodes.Test);
+public static TestDataCenter Test => Get<TestDataCenter>();
 ```
 
 ### 3. 创建 Bond

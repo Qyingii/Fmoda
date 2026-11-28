@@ -25,7 +25,7 @@ Assets/FModa/Modules/SeedRandom/
     └── README.md
 ```
 
-种子状态注册在 `DataManager.SeedRandom`，数据中心 Code 为 `DataCenterCodes.SeedRandom = 3`。`System.Random` 的序列推进状态是模块内部实现，不存入数据中心。
+种子状态通过 `DataManager.SeedRandom` 按需自动注册，CenterCode 由当前运行时的注册顺序分配。`System.Random` 的序列推进状态是模块内部实现，不存入数据中心。
 
 ## 获取模块
 

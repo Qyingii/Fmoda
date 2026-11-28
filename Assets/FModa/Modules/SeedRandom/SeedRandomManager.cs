@@ -14,7 +14,7 @@ namespace FModa.SeedRandom
         private const float MaxUnitFloat = 0.99999994f;
 
         private System.Random _random;
-        private SeedRandomDataCenter Data => DataManager.SeedRandom;
+        private SeedRandomDataCenter Data => DataManager.Get<SeedRandomDataCenter>();
 
         public Type InterfaceType => typeof(ISeedRandomManager);
 

@@ -15,7 +15,7 @@ namespace Conquer.Unit
         public int Priority => 5;
 
         public Action OnHpChanged{get;set;}//血量变化时触发，UnitHpPanel 订阅此事件后刷新 UI
-        private UnitDataCenter unitDataCenter => DataManager.Unit;//数据中心，用于存储战斗数据
+        private UnitDataCenter unitDataCenter => DataManager.Get<UnitDataCenter>();//数据中心，用于存储战斗数据
 
         #region 生命周期
         public void OnRemove()

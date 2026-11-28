@@ -39,8 +39,7 @@ Assets/FModa/Modules/Multilingual/
 `MultilingualDataCenter` 已在 `Assets/FModa/Architecture/Data/DataManager.cs` 注册：
 
 ```csharp
-public static MultilingualDataCenter Multilingual
-    => _multilingual ??= new MultilingualDataCenter(DataCenterCodes.Multilingual);
+public static MultilingualDataCenter Multilingual => Get<MultilingualDataCenter>();
 ```
 
 ---

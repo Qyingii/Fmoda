@@ -87,7 +87,7 @@ GF           → Flow / Bond 注册表 / Module 注册表 / UI / Pool
 | 数据标记 | `Assets/FModa/Architecture/Data/IData.cs` | 空标记接口 |
 | 数据中心 | `Assets/FModa/Architecture/Data/DataCenter.cs`、`IDataCenter.cs` | 泛型 `Dictionary<long,T>` 容器、合成 id、增删改查 |
 | id 布局 | `Assets/FModa/Architecture/Data/DataCenterId.cs` | 12 位数据中心 Code + 51 位本地 id、Code 占用校验、`Compose/Local/Center/Describe` |
-| 数据中心注册与存档 | `Assets/FModa/Architecture/Data/DataManager.cs`、`Save/` | 静态懒加载属性、显式存档注册表；支持按中心/条目 id 导出，以及 Replace / Append 导入 |
+| 数据中心注册与存档 | `Assets/FModa/Architecture/Data/DataManager.cs`、`Save/` | `Get<T>()` 按类型自动注册并分配运行时 Code；支持按中心/条目导出，Replace / Append 均重新发号 |
 | UI 基类 | `Assets/FModa/Architecture/UI/UIBase.cs` | `OnBind / OnUnbind / OnRefresh`、子 UI |
 | UI 管理 | `Assets/FModa/Architecture/UI/UIManager.cs` | `OpenUI / CloseUI`、复用、延迟销毁 |
 | 对象池 | `Assets/FModa/Architecture/Renders/Poolable.cs`、`PoolManager.cs` | `GF.Spawn / GF.Despawn` 的底层 |

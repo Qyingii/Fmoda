@@ -11,9 +11,9 @@ namespace FModa.Data
     /// 泛型数据中心
     ///
     /// id 规则：
-    ///   - 每个数据中心拥有一个稳定的 Code（见 DataManager.DataCenterCodes）
+    ///   - 每个数据中心的 Code 由 DataManager 在注册时自动分配，仅用于当前运行时的 id 隔离
     ///   - 存储 key 是「Code + 本地自增 id」合成的 long，位布局见 DataCenterId
-    ///   - Code = 0 时合成 id 与旧版本逐位一致，未迁移的工程行为不变
+    ///   - 存档不保存条目 id，导入时统一重新发号
     ///
     /// id 保护：
     ///   - 数据只有在未入册（Id = -1）时才能 AddData，避免同一实例被两个中心反复改号
@@ -31,26 +31,22 @@ namespace FModa.Data
         //本地自增 id（不含 Code）
         protected long id = 0;
 
-        /// <summary>本数据中心的数据中心 Code；0 表示未分区（旧行为）。</summary>
-        public int CenterCode { get; }
+        /// <summary>当前运行时的数据中心 Code，由 DataManager 自动分配。</summary>
+        public int CenterCode { get; private set; }
 
-        public DataCenter(int centerCode)
+        private bool initialized;
+
+        /// <summary>初始化运行时 Code；一个实例只能初始化一次。</summary>
+        public void Init(int centerCode)
         {
+            if (initialized)
+                throw new InvalidOperationException($"数据中心 {GetType().Name} 已初始化，不能重复分配 Code");
             if (!DataCenterId.IsValidCenterCode(centerCode))
-            {
-                Debug.LogError(
-                    $"[DataCenter] {GetType().Name} 的 Code {centerCode} 超出 " +
-                    $"0 ~ {DataCenterId.MaxCenterCode}，已回退为 0");
-                centerCode = 0;
-            }
+                throw new ArgumentOutOfRangeException(nameof(centerCode), centerCode,
+                    $"数据中心 Code 必须在 0 ~ {DataCenterId.MaxCenterCode} 之间");
 
             CenterCode = centerCode;
-            DataCenterCodeRegistry.Claim(centerCode, GetType());
-
-#if UNITY_EDITOR
-            if (centerCode == 0)
-                DataCenterCodeRegistry.WarnIfUnregistered(GetType());
-#endif
+            initialized = true;
         }
 
         /// <summary>把本地 id 合成为存储 key。</summary>
@@ -276,13 +272,13 @@ namespace FModa.Data
         DataCenterSave IDataCenterSaveTarget.Export(IReadOnlyCollection<long> itemIds)
             => ExportSnapshot(itemIds);
 
-        void IDataCenterSaveTarget.Restore(DataCenterSave snapshot)
-            => RestoreSnapshot(snapshot);
+        void IDataCenterSaveTarget.CopyFrom(IDataCenterSaveTarget source)
+            => CopyRuntimeState(source);
 
-        IReadOnlyDictionary<long, long> IDataCenterSaveTarget.Append(DataCenterSave snapshot)
-            => AppendSnapshot(snapshot);
+        void IDataCenterSaveTarget.Import(DataCenterSave snapshot)
+            => ImportSnapshot(snapshot);
 
-        /// <summary>导出完整快照，或只导出 itemIds 指定的条目。</summary>
+        /// <summary>导出完整快照，或只导出 itemIds 指定的当前运行时条目。</summary>
         private DataCenterSave ExportSnapshot(IReadOnlyCollection<long> itemIds)
         {
             HashSet<long> selected = null;
@@ -301,7 +297,6 @@ namespace FModa.Data
             {
                 centerCode = CenterCode,
                 centerType = GetType().FullName,
-                lastLocalId = id,
             };
 
             var ordered = new List<KeyValuePair<long, T>>(datas);
@@ -315,7 +310,6 @@ namespace FModa.Data
 
                 snapshot.items.Add(new DataItemSave
                 {
-                    id = pair.Key,
                     data = SerializeData(pair.Value),
                 });
             }
@@ -323,98 +317,70 @@ namespace FModa.Data
             return snapshot;
         }
 
-        /// <summary>恢复到空候选实例，保留文件中的原始 id 与本地计数器。</summary>
-        private void RestoreSnapshot(DataCenterSave snapshot)
+        /// <summary>深拷贝当前运行时状态，供 Append 在候选实例上保留现有条目及其 id。</summary>
+        private void CopyRuntimeState(IDataCenterSaveTarget source)
         {
             if (datas.Count != 0)
-                throw new InvalidDataException($"数据中心 Code {CenterCode} 不是空实例，不能执行覆盖恢复");
+                throw new InvalidDataException($"数据中心 Code {CenterCode} 不是空实例，不能复制运行时状态");
+            if (!(source is DataCenter<T> sourceCenter) || source.GetType() != GetType())
+                throw new InvalidDataException($"不能把 {source.GetType().FullName} 复制到 {GetType().FullName}");
+            if (source.CenterCode != CenterCode)
+                throw new InvalidDataException("复制运行时状态时源中心与目标中心的 Code 不一致");
 
-            var items = ValidateSnapshotItems(snapshot);
-            var restored = new List<KeyValuePair<long, T>>(items.Count);
-
-            foreach (var item in items)
+            var cloned = new List<KeyValuePair<long, T>>(sourceCenter.datas.Count);
+            foreach (var pair in sourceCenter.datas)
             {
-                var data = DeserializeData(item.data);
-                ValidateSaveData(data);
-                data.SetId(item.id);
-                restored.Add(new KeyValuePair<long, T>(item.id, data));
+                if (!(pair.Value.Clone() is T data))
+                    throw new InvalidDataException(
+                        $"数据中心 Code {CenterCode} 的条目 {pair.Key} 无法克隆为 {typeof(T).Name}");
+
+                data.SetId(pair.Key);
+                cloned.Add(new KeyValuePair<long, T>(pair.Key, data));
             }
 
-            foreach (var pair in restored)
+            foreach (var pair in cloned)
                 datas.Add(pair.Key, pair.Value);
 
-            id = snapshot.lastLocalId;
+            id = sourceCenter.id;
             RebuildAfterRestore();
         }
 
-        /// <summary>按文件中的本地 id 顺序追加，并返回原 id → 新 id 映射。</summary>
-        private IReadOnlyDictionary<long, long> AppendSnapshot(DataCenterSave snapshot)
+        /// <summary>按文件顺序导入数据；Replace 与 Append 都通过 AddData 重新分配 id。</summary>
+        private void ImportSnapshot(DataCenterSave snapshot)
         {
             var items = ValidateSnapshotItems(snapshot);
-            var mapping = new Dictionary<long, long>(items.Count);
-
             foreach (var item in items)
             {
                 var data = DeserializeData(item.data);
-                ValidateAppendData(data);
+                ValidateImportedData(data);
                 data.SetId(-1);
 
                 long previousCounter = id;
                 long newId = AddData(data);
                 if (newId < 0 || id <= previousCounter || newId != Compose(id))
                     throw new InvalidDataException(
-                        $"数据中心 Code {CenterCode} 追加了条目 {DataCenterId.Describe(item.id)}，" +
-                        "但没有分配新的尾部 id；追加导入不允许静默合并到已有条目");
-
-                mapping.Add(item.id, newId);
+                        $"数据中心 Code {CenterCode} 导入数据时没有分配新的尾部 id；" +
+                        "存档导入不允许静默合并到已有条目");
             }
-
-            return mapping;
         }
 
-        private List<DataItemSave> ValidateSnapshotItems(DataCenterSave snapshot)
+        private static IReadOnlyList<DataItemSave> ValidateSnapshotItems(DataCenterSave snapshot)
         {
             if (snapshot == null)
-                throw new InvalidDataException($"数据中心 Code {CenterCode} 的快照为空");
-            if (snapshot.centerCode != CenterCode)
-                throw new InvalidDataException(
-                    $"快照 Code {snapshot.centerCode} 与目标中心 Code {CenterCode} 不一致");
-            if (snapshot.lastLocalId < 0 || snapshot.lastLocalId > DataCenterId.MaxLocalId)
-                throw new InvalidDataException(
-                    $"数据中心 Code {CenterCode} 的 lastLocalId {snapshot.lastLocalId} 非法");
+                throw new InvalidDataException("存档数据中心快照为空");
             if (snapshot.items == null)
-                throw new InvalidDataException($"数据中心 Code {CenterCode} 缺少 items");
+                throw new InvalidDataException($"数据中心类型 {snapshot.centerType} 缺少 items");
 
-            var uniqueIds = new HashSet<long>();
-            long maxLocalId = 0;
             foreach (var item in snapshot.items)
             {
                 if (item == null || item.data == null)
-                    throw new InvalidDataException($"数据中心 Code {CenterCode} 包含空条目");
-                if (!DataCenterId.BelongsTo(item.id, CenterCode)
-                    || !DataCenterId.IsValidLocalId(DataCenterId.Local(item.id)))
-                {
-                    throw new InvalidDataException(
-                        $"条目 id {item.id} 不属于数据中心 Code {CenterCode}，或本地 id 非法");
-                }
-                if (!uniqueIds.Add(item.id))
-                    throw new InvalidDataException(
-                        $"数据中心 Code {CenterCode} 重复包含条目 {DataCenterId.Describe(item.id)}");
-
-                maxLocalId = Math.Max(maxLocalId, DataCenterId.Local(item.id));
+                    throw new InvalidDataException($"数据中心类型 {snapshot.centerType} 包含空条目");
             }
 
-            if (maxLocalId > snapshot.lastLocalId)
-                throw new InvalidDataException(
-                    $"数据中心 Code {CenterCode} 的 lastLocalId {snapshot.lastLocalId} " +
-                    $"小于条目最大本地 id {maxLocalId}");
-
-            var ordered = new List<DataItemSave>(snapshot.items);
-            ordered.Sort((a, b) => a.id.CompareTo(b.id));
-            return ordered;
+            return snapshot.items;
         }
 
-        /// <summary>默认按 T 反序列化；特殊数据可重写以补充非默认序列化字段。</summary>
+        /// <summary>默认按 T 序列化；特殊数据可重写以补充非默认序列化字段。</summary>
         protected virtual JObject SerializeData(T data)
         {
             var json = JObject.FromObject(data, CreateSaveSerializer());
@@ -422,7 +388,7 @@ namespace FModa.Data
             return json;
         }
 
-        /// <summary>默认按 T 反序列化；Id 由外层条目恢复，不信任 data 内的值。</summary>
+        /// <summary>默认按 T 反序列化；条目 id 随后由 AddData 重新分配。</summary>
         protected virtual T DeserializeData(JObject json)
         {
             var data = json.ToObject<T>(CreateSaveSerializer());
@@ -431,15 +397,15 @@ namespace FModa.Data
             return data;
         }
 
-        /// <summary>覆盖或追加前的通用数据校验，子类可按自身不变量扩展。</summary>
+        /// <summary>导入前的通用数据校验，子类可按自身不变量扩展。</summary>
         protected virtual void ValidateSaveData(T data)
         {
         }
 
-        /// <summary>追加前校验；子类可拒绝会被自身 AddData 合并的业务键。</summary>
-        protected virtual void ValidateAppendData(T data) => ValidateSaveData(data);
+        /// <summary>导入前校验；子类可拒绝会被自身 AddData 合并的业务键。</summary>
+        protected virtual void ValidateImportedData(T data) => ValidateSaveData(data);
 
-        /// <summary>覆盖恢复后重建子类额外索引。</summary>
+        /// <summary>复制当前运行时状态后重建子类额外索引。</summary>
         protected virtual void RebuildAfterRestore()
         {
         }
@@ -473,5 +439,6 @@ namespace FModa.Data
             typedClone.SetId(-1);
             return AddData(typedClone);
         }
+
     }
 }

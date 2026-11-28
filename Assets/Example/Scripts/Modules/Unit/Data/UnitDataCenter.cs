@@ -5,10 +5,8 @@ using UnityEngine;
 
 namespace Conquer.Unit
 {
-    public class UnitDataCenter : DataCenter<UnitData>,IDataCenter
+    public class UnitDataCenter : DataCenter<UnitData>
     {
-        public UnitDataCenter(int centerCode) : base(centerCode) { }
-
         /// <summary>
         /// 更新单位数据
         /// </summary>

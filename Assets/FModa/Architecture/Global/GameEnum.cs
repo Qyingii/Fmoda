@@ -18,10 +18,10 @@ namespace FModa.Enum
     /// <summary>数据中心存档的导入方式。</summary>
     public enum DataImportMode
     {
-        /// <summary>整体替换选中的数据中心，保留文件中的原始 id。</summary>
+        /// <summary>整体替换选中的数据中心，根据文件数据重新分配 id。</summary>
         Replace,
 
-        /// <summary>在选中数据中心尾部追加，重新分配 id。</summary>
+        /// <summary>在选中数据中心尾部追加，根据文件数据重新分配 id。</summary>
         Append,
     }
 }
