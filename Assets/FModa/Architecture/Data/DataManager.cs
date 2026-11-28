@@ -1,5 +1,6 @@
-﻿using Conquer.Unit;
+using Conquer.Unit;
 using FModa.Multilingual;
+using FModa.SeedRandom;
 
 namespace FModa.Data
 {
@@ -29,6 +30,10 @@ namespace FModa.Data
         private static MultilingualDataCenter _multilingual;
         public static MultilingualDataCenter Multilingual => _multilingual ??= new MultilingualDataCenter(DataCenterCodes.Multilingual);
 
+        //带种子的随机数数据中心
+        private static SeedRandomDataCenter _seedRandom;
+        public static SeedRandomDataCenter SeedRandom => _seedRandom ??= new SeedRandomDataCenter(DataCenterCodes.SeedRandom);
+
         // ── 预加载（可选）──
 
         /// <summary>
@@ -40,6 +45,7 @@ namespace FModa.Data
             // 例：战斗系统在游戏一开始就会用到
             _unit = new UnitDataCenter(DataCenterCodes.Unit);
             _multilingual = new MultilingualDataCenter(DataCenterCodes.Multilingual);
+            _seedRandom = new SeedRandomDataCenter(DataCenterCodes.SeedRandom);
 
             // 后续加：
             // _player = new PlayerDC(DataCenterCodes.Player);
@@ -61,6 +67,7 @@ namespace FModa.Data
         //代号从1开始，0代表独立，不进行Id审查
         public const int Unit = 1;
         public const int Multilingual = 2;
+        public const int SeedRandom = 3;
     }
 }
 

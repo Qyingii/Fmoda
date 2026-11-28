@@ -1,13 +1,17 @@
 # FModa
 
 **F**low + **Mo**dule + **Da**ta — 一套面向 Unity 的轻量模块化框架。
-- 详细使用说明（含截图）：`Assets/Example/README/README.md`
-- 可运行的示例工程：`Assets/Example/`
+
+- 详细使用说明（含截图）：`Assets/FModa/README/README.md`
+- 架构规则：`Assets/FModa/Architecture/Skills/README.md`
+- 可运行示例：`Assets/Example/`
 
 ## 基础思想
+
 - 模块解耦
 - 顺序可控
 - 数据逻辑分离
+- 跨层粘合复用
 
 ---
 
@@ -15,147 +19,133 @@
 
 | 概念 | 类 | 职责 |
 |------|-----|------|
-| **GF** | `GF` | 全局入口。初始化一切、派发模块生命周期、提供对象池出入口 |
-| **Flow** | `IFlow` / `FlowManager` | 流程。启动和销毁模块，游戏运行的总线，顺序可控的基础 |
-| **Module** | `IModule` | 模块。负责业务逻辑，是渲染器/UI 与数据之间的唯一中枢 |
-| **DataCenter** | `DataCenter<T>` | 数据中心。负责数据存储与变更广播 |
-| **Renders** | `MonoBehaviour` / `Poolable` | 游戏对象。执行和展示，不存储数据、不处理逻辑 |
-| **UI** | `UIBase` / `UIManager` | UI 显示与创建/回收 |
+| **GF** | `GF` | 全局入口。初始化框架、派发模块生命周期、管理模块与 Bond、提供对象池出入口 |
+| **Flow** | `IFlow` / `FlowManager` | 只按顺序执行流程步骤、调用 Bond；自定义方法只允许用于切换流程 |
+| **Bond** | `IBond` | 粘合剂。封装模块间以及模块与 Render / UI 间的可复用交互，可访问模块、渲染和 UI |
+| **Module** | `IModule` | 模块。负责业务规则与业务事件，是数据中心的唯一访问者 |
+| **DataCenter** | `DataCenter<T>` | 数据中心。负责运行时数据存储与语义化变更 |
+| **PM** | `PM` | 纯静态工具方法。与模块、数据中心、流程、Bond 和视图均无关 |
+| **Renders** | `MonoBehaviour` / `Poolable` | 游戏对象。执行和展示、转发输入，不直接访问数据中心 |
+| **UI** | `UIBase` / `UIManager` | UI 显示、输入转发与创建/回收 |
 
 ### 各概念对应关系
 
 ```mermaid
 flowchart TD
-    F[GF（一切的起点）]--启动--> E[流程（Flow）]
-    E--启动和销毁--> B[模块（Module）]
-    A[渲染器（Renders）]--调用--> B
-    C[UI]--调用--> B
-    B--读写--> D[数据中心（DataCenter）]
+    G[GF] --> F[Flow]
+    F -->|按步骤调用| X[Bond]
+    X --> M[Module]
+    X --> R[Render]
+    X --> U[UI]
+    R -->|自身输入与显示| M
+    U -->|自身输入与显示| M
+    R -->|跨层组合| X
+    U -->|跨层组合| X
+    M --> D[DataCenter]
+    D --> A[Data]
 ```
 
-- **GF 与流程**：GF 负责启动第一个流程，全局**有且只有一个**流程处于运行状态
-- **流程与模块**：一对多。一个流程可以同时启动多个模块，流程负责模块之间的互动和数据交换
-- **模块与数据**：一对一。一个模块对应一个数据中心，**只允许**模块直接访问数据中心（理论上一个模块可以接多个数据中心，但不建议）
-- **渲染器、UI 与模块**：多对一。游戏对象和 UI 随时获取模块来进行操作，或间接获取数据中心的数据
-- **反向回路**（虚线）：数据被增/删/清空时，数据中心广播事件 → 模块翻译成业务语义转发 → 渲染器/UI 才知道自己持有的数据已经没了。详见[数据生命周期事件](#数据生命周期事件反向回路)
+- **GF 与 Flow**：GF 启动第一个流程，全局有且只有一个 `CurrentFlow`。
+- **Flow 与 Bond**：Flow 只决定先做什么、后做什么，以及何时切换流程；所有模块和视图粘合都由 Bond 完成。
+- **Bond 与其他层**：卡牌变单位、单位变卡牌、生成实体并同步 UI、组合多个模块能力等代码放在 Bond，供所有流程复用。
+- **流程切换**：实现代码只能写在 Flow 中。Bond / Module / Render / UI 可以发事件或返回结果，但不能代替 Flow 调用切换 API。
+- **Module 与 DataCenter**：只有模块可以直接访问数据中心；模块不直接引用其他模块的具体实现。
+- **Render / UI**：自身显示和输入转发可调用模块；涉及其他模块或其他视图的组合逻辑交给 Bond。
 
 ---
 
 ## 文件结构
 
-```
+```text
 Assets/FModa/                        框架本体
 ├── Architecture/
 │   ├── Global/
-│   │   ├── GF.cs                    全局入口：模块注册 / 优先级派发 / 对象池出入口
-│   │   └── GameConfig.cs            全局配置（ScriptableObject）
+│   │   ├── GF.cs                    全局入口：模块 / Bond 管理、优先级派发、对象池出入口
+│   │   ├── GameConfig.cs            全局静态数据（ScriptableObject）
+│   │   ├── GameEnum.cs              公用枚举
+│   │   └── PM.cs                    与模块无关的纯静态工具方法
+│   ├── Bond/
+│   │   └── IBond.cs                 粘合剂标记接口
 │   ├── Data/
 │   │   ├── IData.cs                 数据标记接口
-│   │   ├── IDataCenter.cs           数据中心标记接口 + 创建文档
-│   │   ├── DataCenter.cs            泛型数据中心基类：存储 + 生命周期事件
-│   │   └── DataManager.cs           所有数据中心的统一注册入口（懒加载）
+│   │   ├── IDataCenter.cs           数据中心标记接口
+│   │   ├── DataCenter.cs            泛型数据中心基类
+│   │   └── DataManager.cs           所有数据中心的统一注册入口
 │   ├── Flows/
 │   │   ├── IFlow.cs                 流程接口（Enter / Update / Exit）
 │   │   └── FlowManager.cs           流程启动与切换
-│   ├── Renders/
-│   │   ├── Poolable.cs              对象池对象基类
-│   │   └── PoolManager.cs           对象池管理
-│   └── UI/
-│       ├── UIBase.cs                UI 组件基类（OnBind / OnUnbind / OnRefresh）
-│       └── UIManager.cs             UI 创建 / 关闭 / 延迟清理
-├── Editor/
-│   └── InterfaceGenerator.cs        接口自动生成工具（Tools/Interface Generator）
-└── Modules/                         框架自带的独立模块，每个模块自成一体
-    ├── IModule.cs                   模块生命周期接口（全默认空实现）
-    ├── Network/                     TCP 客户端/服务端 + 主线程派发
-    ├── Hotfix/                      xLua 热更新 + AssetBundle 加载 / 资源下载
-    ├── Modding/                     Mod 清单扫描与 XLua 模组加载
-    └── Debug/                       GameLogger 游戏内日志面板
+│   ├── Renders/                     对象池与场景对象管理
+│   └── UI/                          UIBase 与 UIManager
+└── Modules/                         框架自带的独立模块
 
-Assets/Example/                      使用示例（可直接参考、修改）
-├── Scenes/SampleScene.unity
-├── Prefabs/                         Circle / Square
-├── Scripts/
-│   ├── Flows/                       ExampleFlow / EndFlow
-│   ├── Modules/Unit/                UnitManager + IUnitManager + UnitData + UnitDataCenter
-│   ├── Renders/Unit/                Units（示范订阅者）/ PoolUnit（对象池）
-│   └── UI/                          UnitHpPanel / BlankUI / RedUI
-└── README/README.md                 详细使用说明 + 截图
-
-Assets/Resources/
-├── GameConfig.asset                 全局配置实例
-└── UI/                              UI 预制体（BlankPanel / RedPanel）
+Assets/Example/Scripts/
+├── Bond/
+│   ├── Unit/UnitBond.cs             单位数据、Render 与 UI 的组合步骤
+│   └── SwitchFlow/SwitchFlowBond.cs 结束流程请求事件；不执行流程切换
+├── Flows/                           ExampleFlow / EndFlow
+├── Modules/Unit/                    UnitManager + 接口 + 数据与数据中心
+├── Renders/Unit/                    Units / PoolUnit
+└── UI/                              UnitHpPanel / BlankUI / RedUI
 ```
 
 ### 模块的目录约定
 
-每个模块单独一个文件夹、**同一个命名空间**，内部由这几部分组成：
+每个模块单独一个文件夹、使用同一个命名空间：
 
-```
+```text
 Modules/Network/
-├── Data/NetData.cs             1 个独立数据结构
-├── Interface/INetwork.cs       1 个模块接口
-├── NetworkManager.cs           模块管理器（实现 INetwork + IModule）
-├── TCPClient.cs / TCPServer.cs n 个主要逻辑
-└── Doc/README.md               1 个介绍文档
+├── Data/NetData.cs
+├── Interface/INetwork.cs
+├── NetworkManager.cs
+├── TCPClient.cs / TCPServer.cs
+└── Doc/README.md
 ```
 
-目标是**模块能从当前项目整个拖到另一个项目而不报错**，所以模块内部不要反向依赖 `Assets/Example/` 里的东西。
+目标是模块能整体移动到另一个项目而不引用其他业务模块。Bond 按业务领域放在游戏侧 `Bond/` 目录，不塞进模块内部，也不塞进 `PM`。
 
 ---
 
-## 设计原则
+## 职责边界
 
-### 模块分离
+### Flow：只写步骤，不写粘合
 
-模块直接不应该有任何代码关联，需要强相关的功能建议整合到一个模块中（例如是直接做单位模块，而不是分开做成生命模块、攻击模块），实现高内聚、低耦合。渲染器和 UI 一律通过模块取数据。
+`Enter / Update / Exit` 是 `IFlow` 的固定契约，必须全部实现。除此之外，不为模块转换、实体生成、UI 联动等编写自定义帮助方法；这些逻辑全部放进 Bond。唯一允许的自定义流程方法是流程切换处理，例如 `HandleFlowEnd()`。
 
-### 数据统一
+### Bond：处理可复用的跨层协作
 
-所有数据都放在数据中心里，其他地方一律不存储数据。
+Bond 可以访问模块、Render 和 UI，封装需要组合它们才能完成的一步业务动作。通过 `GF.GetBond<T>()` 获取，不存在时自动创建，同一具体类型重复获取会复用实例。Bond 不实现 `GF.flow.SwitchFlow`，只通过事件通知 Flow 做切换决定。
 
-### 流程控制
+### PM：只放纯工具函数
 
-仅用流程来控制整个游戏的运行顺序。
+PM 中只允许与模块无关的静态方法，例如数值计算、格式化、无状态算法。不得访问 `GF.GetModule`、`DataManager`、Render / UI、Bond 或 Flow，也不得放卡牌与单位转换等业务粘合代码。
 
-### 逻辑帧与渲染帧分离
+### 数据与视图
 
-模块的 `OnUpdate` / `OnLateUpdate` 按 `GF.tick`（默认 0.1s）派发，而不是每帧；渲染器和 UI 保持普通 `MonoBehaviour` 的每帧 `Update`。需要每帧动画/输入响应就放在渲染器里，别塞进模块。（其实模块也不是不可以用（））
+- 数据只描述状态，业务规则和事件在 Module 中。
+- Render / UI 不直接访问 `DataManager`。
+- 模块的 `OnUpdate` / `OnLateUpdate` 按 `GF.tick`（默认 0.1 秒）派发；Render 才使用每帧 `Update` 做表现。
+- 顺序由 Flow 的步骤显式决定，模块生命周期由 GF 和 Bond 中封装的业务步骤处理，不依赖 Unity 消息顺序。
 
 ---
 
 ## 内置工具
 
-菜单栏 **Tools** 下：
+菜单栏 **Tools > Interface Generator** 可按 public 成员生成接口声明。生成后仍需检查命名空间、生命周期方法与事件退订。
 
-- **Interface Generator**（`Tools/Interface Generator`）—— 把要生成接口的类拖进去，自动按 public 成员生成 `I<类名>.cs`，连同注释一起迁移。生成的是**成员声明**，`IModule` 之外的生命周期方法记得自己补 `public`。
+## 内置模块
 
----
+| 模块 | 位置 | 用途 |
+|---|---|---|
+| Debug | `Assets/FModa/Modules/Debug` | 游戏内日志面板 |
+| Network | `Assets/FModa/Modules/Network` | TCP 网络通信 |
+| Hotfix | `Assets/FModa/Modules/Hotfix` | XLua 热更新 |
+| Input | `Assets/FModa/Modules/Input` | 键鼠、手柄、触摸输入 |
+| Multilingual | `Assets/FModa/Modules/Multilingual` | 多语言与语言包 |
+| Pathfinding | `Assets/FModa/Modules/Pathfinding` | 基于 NavMeshPlus 的寻路 |
+| Modding | `Assets/FModa/Modules/Modding` | XLua 模组加载 |
+| SeedRandom | `Assets/FModa/Modules/SeedRandom` | 可复现的带种子整型 / 浮点型随机数 |
 
-### 内置模块
-#### Debug模块
-位置：`Assets/FModa/Modules/Debug`
-用途：用于在Game中查看Debug信息
-
-#### 网络模块
-位置：`Assets/FModa/Modules/Network`
-用途：用于网络通信，制作联机游戏，协议为tcp协议
-
-#### 热更新模块
-位置：`Assets/FModa/Modules/Hotfix`
-用途：用于热更新，使用xlua作为热更新引擎
-
-#### 输入模块
-位置：`Assets/FModa/Modules/Input`
-用途：用于管理和获取输入，支持键鼠、手柄、触摸屏三种输入方式，支持使用轮询或事件来传递输入
-
-#### 多语言模块
-位置：`Assets/FModa/Modules/Multilingual`
-用途：用于多语言支持，内置支持中文、英文、繁体、日语、韩语等多种语言，可自己添加新支持语言，支持自动切换语言
-
-#### 寻路模块
-位置：`Assets/FModa/Modules/Pathfinding`
-用途：用于单位寻路，使用的是开源的NavMeshPlus
+实现新功能前先检查内置模块，优先调用或扩展现有能力。
 
 ## 依赖
 

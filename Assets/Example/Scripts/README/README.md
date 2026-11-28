@@ -1,30 +1,36 @@
+## 示例职责分布
+
+本示例对应的新 Bond / Flow / PM 职责边界如下。`ExampleFlow.cs` 中仍有少量模块管理旧调用，应视为待迁移残留，不要照抄：
+
+- `Flows/ExampleFlow.cs`：目标是只排列进入、退出和流程切换步骤，不在流程里实现模块管理、单位生成或视图联动。
+- `Bond/Unit/UnitBond.cs`：组合 `UnitManager`、单位 Render、`GF.Spawn` 和 `UnitHpPanel`，提供可复用的 `SpawnUnit` / `CreateUnitData` 步骤。
+- `Bond/SwitchFlow/SwitchFlowBond.cs`：只广播结束流程请求；真正的 `GF.flow.SwitchFlow<EndFlow>(this)` 仍由 Flow 实现。
+- `Modules/Unit/`：保存单位业务规则和数据访问。
+- `Renders/Unit/Units.cs`、`UI/UnitHpPanel.cs`：负责表现与输入转发，不直接访问 `DataManager`。
+- `Global/PM.cs`：只放与模块无关的纯静态工具方法，本示例的单位生成与转换逻辑不属于 PM。
+
 ## 播放时序
-当你点击播放时，你会发现明明有两个物体，但是上面的血量只显示1个，但当你点下 `Q`键时，又会有两个
-![alt text](image.png)
 
-在这个示例中，整个流程的播放时序为
-### Awake阶段
-GF.Awake():加载GameConfig
--->初始化数据中心
--->自动注册挂载在场景中的模块
--->获取UI管理器
--->创建对象池
--->获取游戏对象管理器
--->启动第一个流程
--->激活模块并初始化
--->注册并实例化一个圆形对象
--->触发UnitHpPanel的数据更新
+点击播放后，主要时序如下。
 
-GameObjectManager.Awake()：扫描整个场景，获取场景游戏对象
+### Awake 阶段
 
-### OnEnable阶段
-UnitHpPanel.OnEnable():绑定方法触发，触发数据更新
+1. `GF.Awake()` 加载 `GameConfig`，预热线数据中心。
+2. GF 自动注册场景中挂载的模块。
+3. GF 获取 `UIManager`、创建对象池并初始化 `GameObjectManager`。
+4. GF 启动第一个 Flow。
+5. Flow 按顺序取得所需 Bond，并调用 `UnitBond.SpawnUnit(...)`。
+6. `UnitBond` 生成圆形单位、注册 `UnitData`、把 id 注入 `Units`，再触发 `UnitHpPanel` 刷新。
 
-### Start阶段
-Units.Start()：初始化并注册数据到数据中心
+`GameObjectManager.Awake()` 还会扫描场景对象；GF 的默认执行顺序为 `-1000`，实际对象收录以 `sgo.Init()` 和场景加载扫描为准。
 
-由此可见，在整个初始化的过程中，UnitHpPanel的数据更新触发了两次，且两次更新都发生在场景中的那个圆形对象之前，在手动实例化的圆形对象之后，所以才会出现上面的情况。
-因此，如果你想改善这个问题，有两个办法：一个是在ExampleFlow中手动手动注册场景中的游戏对象，另一个是将触发时机移动到Awake()。
+### OnEnable / Start 阶段
+
+- `UnitHpPanel.OnEnable()` 驱动 `OnBind → OnRefresh`，订阅模块事件并做一次初始同步。
+- `Units.Start()` 获取单位与输入模块。如果生成方没有注入 id，则通过 `UnitBond.CreateUnitData()` 执行静态场景单位的兜底注册。
+
+因此，场景静态单位与 Bond 动态生成单位的注册时机不同，UI 初始刷新次数也可能不同。需要调整显示时，应修改 Bond 中可复用的生成／刷新步骤或 UI 自身绑定时机，**不要在 Flow 中新增单位注册、Render 操作或 UI 刷新方法**。
 
 ## 框架用法
-请查看`Assets/FModa/README/README.md`[FMode使用教程](..\..\..\FModa/README/README.md)
+
+完整说明见 `Assets/FModa/README/README.md`，架构硬规则见 `Assets/FModa/Architecture/Skills/README.md`。

@@ -16,7 +16,7 @@ description: FModa/ECMVC 项目的强制规则入口。在阅读、设计、修�
 | 任务 | 必读文件 |
 |---|---|
 | 理解架构、追踪功能链路、判断代码归属 | `Assets/FModa/Architecture/Skills/fmoda-architecture/SKILL.md` |
-| 新增/修改模块、数据中心、Flow | `Assets/FModa/Architecture/Skills/fmoda-module-design/SKILL.md` |
+| 新增/修改模块、数据中心、Bond、Flow | `Assets/FModa/Architecture/Skills/fmoda-module-design/SKILL.md` |
 | 编写 Render、UI、对象池 | `Assets/FModa/Architecture/Skills/fmoda-view-ui/SKILL.md` |
 
 跨领域任务必须全部阅读。**未读完对应规则，不得开始设计或写代码。**
@@ -25,12 +25,14 @@ description: FModa/ECMVC 项目的强制规则入口。在阅读、设计、修�
 
 动手前必须能回答：
 
-1. 改动属于 Data / DataCenter / Module / Flow / Render / UI 哪一层？
+1. 改动属于 Data / DataCenter / Module / Bond / Flow / Render / UI 哪一层？
 2. `Assets/FModa/Modules/` 里有没有现成模块能直接解决？（先查再写）
 3. 这份状态的唯一写入者是谁？变化如何广播给视图？
-4. 谁创建、初始化、销毁它？场景自动注册还是 Flow 管理？
-5. 视图是否绕过了模块，直接访问 `DataManager`？
-6. 视图入口是否正确：UI 继承 `UIBase` 并走 `GF.ui.OpenUI`；场景对象 / 预制体走 `GF.sgo`？
+4. 谁创建、初始化、销毁它？是场景自动注册、GF 底层生命周期，还是 Bond 封装的业务步骤？
+5. 跨模块、跨 Module / Render / UI 的复用逻辑是否已放进 Bond，而不是堆进 Flow 或 PM？
+6. 视图是否绕过了模块，直接访问 `DataManager`？
+7. 流程切换实现是否只存在于 Flow？
+8. 视图入口是否正确：UI 继承 `UIBase` 并走 `GF.ui.OpenUI`；场景对象 / 预制体走 `GF.sgo`？
 
 任何一条答不上来，继续读，不要堆代码。
 
@@ -38,6 +40,9 @@ description: FModa/ECMVC 项目的强制规则入口。在阅读、设计、修�
 
 - 视图（Render / UI）直接访问 `DataManager`
 - 模块直接引用其他模块的具体实现
+- 在 Flow 中创建、获取、移除模块，或直接实现模块间、模块与 Render / UI 间的粘合逻辑（交给 Bond）
+- 在 Bond / Module / Render / UI 中实现流程切换（只能在 Flow 中实现）
+- 在 PM 中放与模块、数据中心、流程、Bond 或视图相关的方法（PM 只放纯静态工具方法）
 - 场景模块已经自动注册，又手写 `RegisterModule`
 - 把 `IModule` 生命周期方法写成 private
 - 把 `IModule` 的销毁钩子写成 `OnDestroy`（接口方法是 `OnRemove`）
@@ -45,7 +50,7 @@ description: FModa/ECMVC 项目的强制规则入口。在阅读、设计、修�
 - 把 `DataManager.X` 缓存到字段
 - 订阅 `DataCenter<T>` 当前并不存在的 `OnDataAdded / OnDataRemoved / OnCleared`
 - 新建静态数据类 / 常量类 / `ScriptableObject` 配置类（静态数据只放 `Global/GameConfig.cs`，并注释用途）
-- 新建 `Utils` / `Helper` / `Common` / `Extensions` 等静态工具类（公用静态方法只放 `Global/PM.cs`）
+- 新建 `Utils` / `Helper` / `Common` / `Extensions` 等静态工具类（纯静态工具方法只放 `Global/PM.cs`）
 - 在模块里重复定义跨模块枚举（公用枚举只放 `Global/GameEnum.cs`）
 - 没检查 `Assets/FModa/Modules` 就新建同职责模块（重复造轮子）
 - UI 面板直接继承 `MonoBehaviour`（必须继承 `UIBase`，预制体放 `Resources/UI`，通过 `GF.ui.OpenUI` 打开）

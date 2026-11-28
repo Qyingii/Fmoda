@@ -46,7 +46,7 @@ public static MultilingualDataCenter Multilingual => _multilingual ??= new Multi
 
 ## 启动方式
 
-由 Flow 创建并初始化。示例 `Assets/Example/Scripts/Flows/ExampleFlow.cs`：
+多语言模块由实际需要它的 Bond 或视图通过 `GF.GetModule<MultilingualManager>()` 获取并初始化；Flow 不直接创建、获取或移除模块，只调用封装好的 Bond 步骤：
 
 ```csharp
 using FModa.Multilingual;
@@ -58,7 +58,7 @@ multilingual.Init();
 - `GF.GetModule<MultilingualManager>()` 不存在时自动创建并注册。
 - `Init()` 加载语言包、选择当前语种；重复调用幂等。
 - 如果忘记调用 `Init()`，第一次访问 `GetText` / `CurrentLanguageCode` 等 API 时会懒初始化。
-- 多语言是全局基础服务，通常**不随 Flow 退出而移除**；需要移除时调用 `GF.RemoveModule<MultilingualManager>()`。
+- 多语言是全局基础服务，通常**不随 Flow 退出而移除**；确需移除时，由 Bond 封装对应业务清理步骤并调用 `GF.RemoveModule<MultilingualManager>()`，不要在 Flow 中直接移除。
 
 如果要在初始化前改配置，必须在 `Init()` 之前设置：
 
@@ -298,7 +298,7 @@ public class StartButtonLabel : MonoBehaviour
 ```
 
 - 订阅必须用命名方法，并在 `OnDisable` / `OnUnbind` 成对退订。
-- 初始语种在 `OnEnable` / `OnBind` 里主动 `GetText` 同步一次；`OnLanguageChanged` 不会为初始选择补发（模块在 Flow 里已经初始化完成）。
+- 初始语种在 `OnEnable` / `OnBind` 里主动 `GetText` 同步一次；`OnLanguageChanged` 不会为初始选择补发（模块在进入对应业务阶段时已经初始化完成）。
 - 设置界面可以用 `GetAvailableLanguages()` 生成列表，选中后调用 `SetLanguage(code)`。
 - 完整示例见 `Example/LocalizedText.cs`。
 

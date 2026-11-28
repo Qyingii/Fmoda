@@ -6,9 +6,9 @@
 
 | Skill | 何时使用 | 核心内容 |
 |---|---|---|
-| [`fmoda-architecture`](fmoda-architecture/SKILL.md) | 第一次接触仓库、要判断代码归属、追踪功能链路、修改前确认现状 | 分层与依赖方向、概念→文件地图、推荐阅读顺序、文档漂移表、动手前检查、反模式信号 |
-| [`fmoda-module-design`](fmoda-module-design/SKILL.md) | 新增/修改模块、数据中心、模块接口、Flow 接入 | 六步实现流程、目录与命名规范、Data/DataCenter/Manager 代码骨架、注册路径对照、生命周期陷阱、自检清单 |
-| [`fmoda-view-ui`](fmoda-view-ui/SKILL.md) | 编写渲染器、UIBase 面板、对象池对象 | **UI 必须继承 `UIBase` 并走 `GF.ui.OpenUI`（不能直接 `MonoBehaviour`）**、Render 通过 `GF.sgo`/`Sgo` 获取场景对象与预制体、`OnBind/OnUnbind/OnRefresh` 生命周期、`UIManager` 打开/关闭/子 UI、`Poolable` 与 `Spawn/Despawn`、常见错误 |
+| [`fmoda-architecture`](fmoda-architecture/SKILL.md) | 第一次接触仓库、要判断代码归属、追踪功能链路、修改前确认现状 | 分层与依赖方向、Bond / Flow / PM 职责边界、概念→文件地图、推荐阅读顺序、文档漂移表、动手前检查、反模式信号 |
+| [`fmoda-module-design`](fmoda-module-design/SKILL.md) | 新增/修改模块、数据中心、模块接口、Bond、Flow | 六步实现流程、目录与命名规范、Data/DataCenter/Manager 代码骨架、Bond 与 Flow 示例、注册路径对照、生命周期陷阱、自检清单 |
+| [`fmoda-view-ui`](fmoda-view-ui/SKILL.md) | 编写渲染器、UIBase 面板、对象池对象 | **UI 必须继承 `UIBase` 并走 `GF.ui.OpenUI`（不能直接 `MonoBehaviour`）**、Render 通过 `GF.sgo`/`Sgo` 获取场景对象与预制体、跨层组合交给 Bond、`OnBind/OnUnbind/OnRefresh` 生命周期、`Poolable` 与 `Spawn/Despawn` |
 
 ## 按层找方法
 
@@ -16,7 +16,8 @@
 |---|---|
 | 数据层（`IData` + `DataCenter<T>`） | `fmoda-module-design` 第 1、2 步；注册在 `DataManager`（第 5 步） |
 | 模块层（接口 + Manager + 生命周期） | `fmoda-module-design` 第 3、4 步 |
-| Flow（创建/销毁模块、切换流程） | `fmoda-module-design` 第 6 步；`IFlow.Enter(IFlow lastFlow, List<object> list)` |
+| Bond（模块间、模块与 Render / UI 间的可复用粘合） | `fmoda-module-design` 第 6 步；通过 `GF.GetBond<T>()` 获取 |
+| Flow（只编排步骤、切换流程） | `fmoda-module-design` 第 6 步；`IFlow.Enter(IFlow lastFlow, List<object> list)` |
 | Render（场景表现、输入轮询） | `fmoda-view-ui` 第 1 节；场景对象/预制体走 `GF.sgo` |
 | UI（面板） | `fmoda-view-ui` 第 2 节；**必须继承 `UIBase`**，走 `GF.ui.OpenUI` |
 | 对象池 | `fmoda-view-ui` 第 4 节；`Poolable` + `GF.Spawn / GF.Despawn` |
@@ -28,12 +29,13 @@
 | 内容 | 唯一位置 | 规则 |
 |---|---|---|
 | 静态数据（全局配置、常量、只读表、默认值） | `Assets/FModa/Architecture/Global/GameConfig.cs` | 只在这里加字段；每个字段必须用注释 / `[Tooltip]` 写明「这是什么、谁在用、单位或取值范围」。运行时通过 `GF.config.xxx` 读取。不要再新建配置类、常量类或 `public static` 数据类。 |
-| 公用静态方法（跨模块 / 跨流程 / 跨视图复用的无状态方法） | `Assets/FModa/Architecture/Global/PM.cs` | 统一写成 `PM.xxx(...)`。不要再新建 `Utils` / `Helper` / `Common` / `Extensions` 之类的静态工具类。 |
+| 纯静态工具方法（与模块无关的计算、格式化、无状态算法） | `Assets/FModa/Architecture/Global/PM.cs` | 统一写成 `PM.xxx(...)`。不得访问或依赖 Module、DataCenter、Bond、Flow、Render、UI；实体转换与跨层协作放 Bond。不要再新建 `Utils` / `Helper` / `Common` / `Extensions`。 |
 | 公用枚举（两个及以上模块或视图会用的枚举） | `Assets/FModa/Architecture/Global/GameEnum.cs` | 放进 `FModa.Enum` 命名空间。不要在各自模块的 Data 里重复定义同一语义的枚举，再写转换适配器。 |
 
 补充：
 
 - 判定标准是「是否被多个类 / 模块共享」。只在单个类内部使用、不对外暴露的 `private const` / `private static` 可以留在类内；一旦第二个类也要用，就按上表上移。
+- **跨模块或跨层共享不等于放进 PM**：只要方法与模块、数据中心、实体或视图有关，就应归入对应模块或 Bond；PM 只接受纯工具函数。
 - 本条约束的是「业务静态数据 / 常量 / 只读表」；`GF.Instance`、`DataManager.X` 这类框架管理器实例已有明确归属，不在此列。
 - `GameConfig` 是 `ScriptableObject`，实例在 `Assets/Resources/GameConfig.asset`；新增字段后要在 Inspector 里也能看懂用途。
 - 对框架、内置模块、业务模块、`Assets/Example` 同样生效。已有代码尚未迁移的，改到哪就顺手迁到哪，不要新增第二套。
@@ -51,6 +53,7 @@
 | `Modules/Multilingual/` | `IModule` | 多语言：自动跟随系统语言、运行时添加语言包 | `IMultilingualManager` |
 | `Modules/Debug/` | 普通组件 | 游戏内日志面板 | `GameLogger`（挂在场景对象上，不是 `IModule`） |
 | `Modules/Pathfinding/` | 第三方库 | 2D NavMesh 寻路（NavMeshPlus） | `NavMeshComponents` |
+| `Modules/SeedRandom/` | `IModule` | 设置 / 清除种子、可复现序列、独立种子随机，区间左闭右开 | `ISeedRandomManager`（`GF.GetModule<SeedRandomManager>()`） |
 | `Modules/IModule.cs` | 契约 | 模块标记接口 | — |
 
 - 每个模块的具体用法看它自己的 `Doc/README.md` 和 `Interface/`。

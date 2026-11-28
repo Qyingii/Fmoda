@@ -5,13 +5,20 @@ description: 在 FModa/ECMVC Unity 项目中编写渲染器（Render）、UI 或
 
 # 渲染器 / UI / 对象池设计规范
 
-视图层（Render、UI）的职责只有一个：**把模块的状态显示出来，把用户的输入转交给模块。** 它不做业务判断，不直接读写数据中心，不决定数据该不该存在。
+视图层（Render、UI）负责**显示模块状态、转发用户输入和实现表现**。它不做业务判断，不直接读写数据中心，也不承担可复用的跨模块、跨层组合逻辑。
 
+```text
+自身输入 → Render/UI → Module（做决定） → DataCenter（存状态）
+                           ↓ 广播业务事件
+                        Render/UI（刷新显示）
+
+跨模块或跨层动作 → Render/UI / Flow → Bond → Module / Render / UI
 ```
-输入 → Render/UI → Module（做决定） → DataCenter（存状态）
-                        ↓ 广播业务事件
-                     Render/UI（刷新显示）
-```
+
+- 视图自身的一次查询、移动、扣血等输入转发可以直接调用模块。
+- 卡牌变单位、生成实体并注册数据、注入视图 id、联动另一个面板等组合动作放 Bond。
+- 视图可以通过事件或 `GF.GetBond<T>()` 提出跨层动作请求，但不能直接访问 `DataManager`。
+- **切换流程只能在 Flow 中实现**。视图和 Bond 只发事件或返回结果，不能调用 `GF.flow.SwitchFlow`。
 
 ---
 
@@ -94,13 +101,13 @@ using UnityEngine;
 
 public class Units : MonoBehaviour
 {
-    // id 由生成方（Flow）注入；-1 表示未注册。不参与 Inspector 序列化，
+    // id 由 Bond 在注册数据后注入；-1 表示未注册。不参与 Inspector 序列化，
     // 避免预制体复制、场景复制时把 id 写坏。
     [SerializeField, HideInInspector] private long unitId = -1;
 
     private IUnitManager unitManager;
 
-    /// <summary>注册数据后由 Flow 调用，注入数据 id。</summary>
+    /// <summary>Bond 在 Register 成功后调用，注入数据 id。</summary>
     public void BindUnit(long id)
     {
         if (id > 0) unitId = id;
@@ -108,7 +115,7 @@ public class Units : MonoBehaviour
 
     private void Start()
     {
-        // 获取模块：必须用具体类型
+        // 自身输入与查询可直接获取模块：必须用具体类型
         unitManager = GF.GetModule<UnitManager>();
     }
 
@@ -127,7 +134,7 @@ public class Units : MonoBehaviour
 
     private void OnDestroy()
     {
-        // 注销也由视图发起，但要先确认 id 仍然有效（EndFlow/Clear 之后可能已经失效）
+        // 注销前确认 id 仍有效（流程结束或数据 Clear 之后可能已经失效）
         if (unitId > 0 && unitManager != null && unitManager.TryGetUnitData(unitId, out _))
             unitManager.UnRegister(unitId);
     }
@@ -136,18 +143,20 @@ public class Units : MonoBehaviour
 
 ### 规则
 
-- **只获取模块，不创建模块。** `GF.GetModule<UnitManager>()`；不要在 Render 里 `CreateModule`。
-- **数据注册优先由生成方负责。** Flow/生成器 `Register` 成功后通过 `BindUnit(id)` 之类的接口把 id 注入视图；视图只负责持有并在失效时停止调用模块。同一份数据不能有两个写入者。
-- **示例 `Units.cs` 的 `Start` 里保留了 `unitId == -1` 时的自注册兜底**，只服务于场景里静态摆放、没有生成方的单位；Flow 注入过 id 就不会触发。生产代码优先只保留 Flow 一个写入者，不要无条件自注册。
-- **id 只当不透明句柄。** 存储 id 是「数据中心 Code + 本地序号」的合成值（见 `DataCenterId`），不要解析、不要硬编码、不要和 `1`、`2` 这类小整数比较；需要显示时用模块暴露的 `ToLocalId(id)`。
+- **只获取模块，不在视图显式创建模块。** 自身业务调用使用 `GF.GetModule<UnitManager>()`；不要在 Render / UI 里 `CreateModule`。
+- **跨层组合交给 Bond。** 数据注册、对象生成、id 注入、其他视图刷新组成一个动作时，由 Bond 的 `SpawnUnit` 之类方法统一完成，Flow 只调用它。
+- **数据注册优先由 Bond 负责。** Bond 调用模块 `Register` 成功后，通过 `BindUnit(id)` 注入视图；同一份数据不能有两个写入者。
+- **静态场景单位的兜底也走 Bond。** 示例 `Units.cs` 在 `unitId == -1` 时调用 `UnitBond.CreateUnitData()`，不要重新在视图里复制一套注册逻辑。
+- **id 只当不透明句柄。** 存储 id 是「数据中心 Code + 本地序号」的合成值；需要显示时用模块暴露的 `ToLocalId(id)`。
 - **输入只做转发。** Render 可以轮询输入，但状态变化必须调用模块方法；不要在 Render 里直接改 `UnitData.hp`。
-- **不直接访问 `DataManager`。** 需要数据就通过模块的查询方法。
-- **订阅/退订成对。** 事件在 `OnEnable` 订阅、`OnDisable` 退订；注册/注销与模块生命周期严格对应，用命名方法。
-- **数据可能被外部删除。** 模块必须提供 `TryGetUnitData(id, out data)` 这类安全查询；Render 在拿到明确的删除通知前，每次调用模块前都要确认 id 仍然有效，否则 `EndFlow/Clear` 之后继续按键就会空引用。
-- **不要假设 `Start` 一定在 GF 初始化之后。** 场景中的 GF 与 Render 都是 `Awake` 阶段创建，`Start` 相对安全，但更稳妥的是在真正使用前取模块，并对 `null` 做处理。
-- **需要池化时继承 `Poolable`**，用 `GF.Spawn / GF.Despawn`，不要 `Instantiate / Destroy`。
-- **日志走 `GF.Log / GF.LogWarning / GF.LogError`**：受 `GF.debugMode` 控制；不要直接 `Debug.Log`。
-- **不要为视图另造公用类型**：静态数据放 `Global/GameConfig.cs`，公用静态方法放 `Global/PM.cs`，公用枚举放 `Global/GameEnum.cs`。
+- **不直接访问 `DataManager`。** 需要数据就通过模块查询；涉及多个模块或视图时使用 Bond。
+- **订阅/退订成对。** 事件在 `OnEnable` 订阅、`OnDisable` 退订，使用命名方法。
+- **数据可能被外部删除。** 模块必须提供 `TryGetUnitData(id, out data)` 这类安全查询；Render 在调用模块前确认 id 有效。
+- **不要假设 `Start` 一定在 GF 初始化之后。** 更稳妥的是在真正使用前取模块并判空。
+- **需要池化时继承 `Poolable`**，用 `GF.Spawn / GF.Despawn`。如果生成还伴随数据注册或视图联动，把 `Spawn` 一并封装进 Bond。
+- **日志走 `GF.Log / GF.LogWarning / GF.LogError`**，不要直接 `Debug.Log`。
+- **不要为视图另造公用类型**：静态数据放 `GameConfig`，公用枚举放 `GameEnum`；纯静态工具放 `PM`，涉及模块或视图的公共动作放 Bond，不能放 PM。
+- **不要在视图切换流程。** 通过 Bond 或自身事件通知 Flow，由 Flow 自己实现切换。
 
 ### 事件订阅型 Render
 
