@@ -251,10 +251,46 @@ public class TestFlow : IFlow
 
 ### 数据管理器
 
-所有数据中心都在 `Assets/FModa/Architecture/Data/DataManager.cs` 注册。模块每次通过 `DataManager.X` 属性访问，不要缓存到字段，因为 `PreWarm()` 会替换实例。
+所有数据中心都在 `Assets/FModa/Architecture/Data/DataManager.cs` 注册。模块每次通过 `DataManager.X` 属性访问，不要缓存到字段，因为 `PreWarm()` 和存档导入都会替换实例。
 
 Render / UI 不得直接访问 `DataManager`；Bond 也不直接读写数据中心，而是通过模块完成数据和视图的组合。
 
+### 数据中心存档
+
+`DataManager.ExportToFile(path, options)` 使用 JSON 保存数据中心；`ImportFromFile(path, options)` 恢复数据。导出可通过 `CenterCodes` 选择中心，并通过 `ItemIdsByCenter` 精确选择各中心内的合成 id：
+
+```csharp
+var result = DataManager.ExportToFile(path, new DataExportOptions
+{
+    CenterCodes = new[] { DataCenterCodes.Unit },
+    ItemIdsByCenter = new Dictionary<int, IReadOnlyCollection<long>>
+    {
+        [DataCenterCodes.Unit] = new[] { unitId },
+    },
+});
+```
+
+- `CenterCodes = null` 表示全部中心；条目过滤未出现的中心导出全部条目，空条目集合表示只保存该中心状态和计数器。
+- `DataImportMode.Replace`：整体替换选中中心，保留文件中的原始 id 和 `lastLocalId`。
+- `DataImportMode.Append`：在尾部追加并重新发号；通过 `DataImportResult.IdMappings` 返回文件原 id → 新 id。条目内部的 id 引用不会自动改写。
+- 导入先在候选实例上完成全部解析、校验和索引重建，再替换当前实例；失败时现有数据不变。
+- 多语言存档会额外保存 `customKeys` 并重建语种索引；追加相同语种代码会失败，不会静默合并。
+- 随机模块只保存种子值，不保存 `System.Random` 的序列推进位置；已有种子状态时不能追加第二条。
+- 存档只覆盖 DataCenter，不包含模块私有状态、场景对象、语言包文件、输入配置或 PlayerPrefs。导入后的多模块和视图同步由 Bond 负责。
+
+导入示例：
+```csharp
+// 整体替换，保留文件中的原始 ID
+var replace = DataManager.ImportFromFile(path);
+
+// 尾部追加，重新分配 ID
+var append = DataManager.ImportFromFile(path, new DataImportOptions
+{
+    Mode = DataImportMode.Append,
+});
+
+var newId = append.IdMappings[DataCenterCodes.Unit][oldId];
+```
 ---
 
 ## 渲染器（Render）

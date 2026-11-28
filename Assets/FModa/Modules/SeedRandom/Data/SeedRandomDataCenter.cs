@@ -1,3 +1,4 @@
+using System.IO;
 using FModa.Data;
 
 namespace FModa.SeedRandom
@@ -30,6 +31,20 @@ namespace FModa.SeedRandom
             var data = GetState();
             data.hasSeed = false;
             data.seed = 0;
+        }
+
+        /// <summary>该中心的业务不变量是至多一条种子状态。</summary>
+        protected override void RebuildAfterRestore()
+        {
+            if (datas.Count > 1)
+                throw new InvalidDataException("随机种子数据中心最多只能包含一条状态");
+        }
+
+        /// <summary>追加种子前，当前候选中心必须还没有种子状态。</summary>
+        protected override void ValidateAppendData(SeedRandomData data)
+        {
+            if (datas.Count > 0)
+                throw new InvalidDataException("随机种子数据中心已有状态，不能继续追加第二条状态");
         }
     }
 }

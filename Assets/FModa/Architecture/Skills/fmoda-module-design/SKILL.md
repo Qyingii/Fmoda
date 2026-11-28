@@ -333,6 +333,9 @@ public static InventoryDataCenter Inventory
 - 需要在启动时就准备好的数据中心，在 `PreWarm()` 里 `new` 一次，同样带上 Code。
 - **模块里不要缓存 `DataManager.X` 到字段**：`PreWarm()` 会整体替换实例，旧引用会变成孤儿。
 - 新增数据中心必须在这里注册，否则别处无法正常获取。
+- 新增中心还必须在 `DataManager.CreateRegistry()` 注册存档的获取、创建和替换委托；否则它不会进入通用存档。子类若维护额外索引或存在追加冲突，应重写 `RebuildAfterRestore / ValidateAppendData`，特殊序列化字段使用 `SerializeData / DeserializeData`。
+- 存档导出支持 `CenterCodes` 和 `ItemIdsByCenter`；导入默认 `Replace`，保留原 id 和 `lastLocalId`。`Append` 必须真正新增并重新发号，结果中的 `IdMappings` 交给上层处理引用，不能利用子类 `AddData` 静默合并。
+- `PreWarm()` 和存档导入都会替换中心实例，因此任何调用方都不能缓存 `DataManager.X`。
 
 ### 第 6 步：Flow 管理单模块，Bond 封装多模块与跨层粘合
 

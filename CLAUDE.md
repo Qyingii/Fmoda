@@ -51,7 +51,7 @@ Render / UI → Bond          （需要复用的跨模块、跨层交互）
 | Flow | `Assets/FModa/Architecture/Flows/` | 全局只有一个 `CurrentFlow`；编排步骤、直接管理单个模块、调用 Bond 并控制流程切换；自定义方法只允许实现流程切换 |
 | Bond | `Assets/FModa/Architecture/Bond/`、业务 `Bond/` | 可复用的模块间及模块与 Render / UI 间的粘合；可访问模块、渲染和 UI，不负责切换流程 |
 | Module | `Assets/FModa/Modules/` | 普通 C# 类；业务规则与业务事件；实现 `IModule`；只有模块可以访问数据中心 |
-| DataCenter | `Assets/FModa/Architecture/Data/` | 运行时状态 `Dictionary<long,T>`，在 `DataManager` 注册；不写业务规则 |
+| DataCenter | `Assets/FModa/Architecture/Data/` | 运行时状态 `Dictionary<long,T>`，在 `DataManager` 注册；不写业务规则。DataManager 支持按中心/条目导出及 Replace / Append 导入 |
 | Render / UI | `Assets/FModa/Architecture/Renders`、`UI`、`Example/Scripts` | 表现与输入转发；不直接访问 `DataManager`；跨层组合逻辑交给 Bond |
 
 ## Quick Rules（详细版见 Skills）

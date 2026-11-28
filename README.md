@@ -72,7 +72,8 @@ Assets/FModa/                        框架本体
 │   │   ├── IData.cs                 数据标记接口
 │   │   ├── IDataCenter.cs           数据中心标记接口
 │   │   ├── DataCenter.cs            泛型数据中心基类
-│   │   └── DataManager.cs           所有数据中心的统一注册入口
+│   │   ├── DataManager.cs           数据中心注册与存档导出入口
+│   │   └── Save/                    存档契约、过滤选项和导入结果
 │   ├── Flows/
 │   │   ├── IFlow.cs                 流程接口（Enter / Update / Exit）
 │   │   └── FlowManager.cs           流程启动与切换

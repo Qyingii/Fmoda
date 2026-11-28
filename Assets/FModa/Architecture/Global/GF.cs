@@ -584,4 +584,23 @@ public class GF : MonoBehaviour
         Debug.LogError(message);
     }
     #endregion
+    #region 导入与导出
+    /// <summary>
+    /// 将数据中心保存为 JSON。可通过 CenterCodes 和 ItemIdsByCenter 控制导出范围。
+    /// 本方法同步执行，应在主线程且没有数据变更的步骤中调用。
+    /// </summary>
+    public static DataSaveResult ExportToFile(string path, DataExportOptions options = null)
+    {
+        return DataManager.ExportToFile(path, options);
+    }
+
+    /// <summary>
+    /// 从 JSON 导入数据中心。Replace 保留原 id 并整体替换；Append 重新发号并追加。
+    /// 所有选中的中心都在候选实例上准备成功后才会替换当前实例，失败时内存不变。
+    /// </summary>
+    public static DataImportResult ImportFromFile(string path, DataImportOptions options = null)
+    {
+        return DataManager.ImportFromFile(path, options);
+    }
+    #endregion
 }

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using FModa.Data;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace FModa.Multilingual
@@ -73,6 +75,55 @@ namespace FModa.Multilingual
         {
             _codeToId.Clear();
             base.Clear();
+        }
+
+        /// <summary>通用存档需要保留 customKeys，否则后续语言包持久化会丢失自定义条目标记。</summary>
+        protected override JObject SerializeData(LanguageData data)
+        {
+            var json = base.SerializeData(data);
+            var customKeys = new List<string>(data.customKeys ?? new HashSet<string>());
+            customKeys.Sort(StringComparer.Ordinal);
+            json["customKeys"] = new JArray(customKeys);
+            return json;
+        }
+
+        protected override LanguageData DeserializeData(JObject json)
+        {
+            var data = base.DeserializeData(json);
+            data.entries = data.entries == null
+                ? new Dictionary<string, string>(StringComparer.Ordinal)
+                : new Dictionary<string, string>(data.entries, StringComparer.Ordinal);
+
+            var customKeys = json["customKeys"]?.ToObject<List<string>>() ?? new List<string>();
+            data.customKeys = new HashSet<string>(customKeys, StringComparer.Ordinal);
+            return data;
+        }
+
+        protected override void ValidateSaveData(LanguageData data)
+        {
+            if (data == null || string.IsNullOrWhiteSpace(data.code))
+                throw new InvalidDataException("多语言存档包含 code 为空的语种数据");
+        }
+
+        protected override void ValidateAppendData(LanguageData data)
+        {
+            ValidateSaveData(data);
+            if (_codeToId.ContainsKey(data.code))
+                throw new InvalidDataException(
+                    $"语种 {data.code} 已存在；追加导入不允许通过 AddData 静默合并语种");
+        }
+
+        protected override void RebuildAfterRestore()
+        {
+            _codeToId.Clear();
+            foreach (var pair in datas)
+            {
+                string code = pair.Value.code;
+                if (_codeToId.ContainsKey(code))
+                    throw new InvalidDataException(
+                        $"多语言存档包含大小写不敏感规则下重复的语种代码：{code}");
+                _codeToId.Add(code, pair.Key);
+            }
         }
 
         public LanguageData GetByCode(string code)

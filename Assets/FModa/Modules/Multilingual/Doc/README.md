@@ -39,7 +39,8 @@ Assets/FModa/Modules/Multilingual/
 `MultilingualDataCenter` 已在 `Assets/FModa/Architecture/Data/DataManager.cs` 注册：
 
 ```csharp
-public static MultilingualDataCenter Multilingual => _multilingual ??= new MultilingualDataCenter();
+public static MultilingualDataCenter Multilingual
+    => _multilingual ??= new MultilingualDataCenter(DataCenterCodes.Multilingual);
 ```
 
 ---
@@ -211,7 +212,9 @@ Application.persistentDataPath/Multilingual/<归一化后的 code>.json
 
 `Init()` 会扫描该目录并加载所有 `*.json`。自定义包在内置包之后加载，**同 code、同 key 会覆盖内置条目**，未覆盖的条目保留。
 
-> `persist: true` 写出的是该语种**累计的自定义条目**（运行时添加或覆盖的 key），不会把内置语言包的内容复制进存档。下次启动时先加载内置包，再叠加这些自定义条目。
+> `persist: true` 写出的是该语种**累计的自定义条目**（运行时添加或覆盖的 key），不会把内置语言包的内容复制进语言包文件。下次启动时先加载内置包，再叠加这些自定义条目。
+>
+> `DataManager.ExportToFile` 的通用 DataCenter 存档是另一份完整运行时快照，会保存 `entries` 和 `customKeys`，但不会自动修改这里的语言包文件或 PlayerPrefs。追加导入时若目标中心已有相同 code（不区分大小写），导入会失败，不会走普通 `AddData` 的合并逻辑。
 
 ### 覆盖与删除
 

@@ -1,4 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace FModa.Data
@@ -19,7 +23,7 @@ namespace FModa.Data
     /// 本类只负责存储与最小校验，不广播任何生命周期事件；业务事件由模块负责。
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class DataCenter<T> : IDataCenter where T : IData
+    public class DataCenter<T> : IDataCenter, IDataCenterSaveTarget where T : IData
     {
         //数据，key 为合成 id
         protected readonly Dictionary<long, T> datas = new();
@@ -268,6 +272,183 @@ namespace FModa.Data
         {
             return datas.ContainsValue(Data);
         }
+
+        DataCenterSave IDataCenterSaveTarget.Export(IReadOnlyCollection<long> itemIds)
+            => ExportSnapshot(itemIds);
+
+        void IDataCenterSaveTarget.Restore(DataCenterSave snapshot)
+            => RestoreSnapshot(snapshot);
+
+        IReadOnlyDictionary<long, long> IDataCenterSaveTarget.Append(DataCenterSave snapshot)
+            => AppendSnapshot(snapshot);
+
+        /// <summary>导出完整快照，或只导出 itemIds 指定的条目。</summary>
+        private DataCenterSave ExportSnapshot(IReadOnlyCollection<long> itemIds)
+        {
+            HashSet<long> selected = null;
+            if (itemIds != null)
+            {
+                selected = new HashSet<long>(itemIds);
+                foreach (long itemId in selected)
+                {
+                    if (!TryGetData(itemId, out _))
+                        throw new InvalidDataException(
+                            $"数据中心 Code {CenterCode} 不包含要导出的条目 {DataCenterId.Describe(itemId)}");
+                }
+            }
+
+            var snapshot = new DataCenterSave
+            {
+                centerCode = CenterCode,
+                centerType = GetType().FullName,
+                lastLocalId = id,
+            };
+
+            var ordered = new List<KeyValuePair<long, T>>(datas);
+            ordered.Sort((a, b) => a.Key.CompareTo(b.Key));
+            foreach (var pair in ordered)
+            {
+                if (selected != null && !selected.Contains(pair.Key))
+                    continue;
+                if (pair.Value == null)
+                    throw new InvalidDataException($"数据中心 Code {CenterCode} 包含空数据，无法导出");
+
+                snapshot.items.Add(new DataItemSave
+                {
+                    id = pair.Key,
+                    data = SerializeData(pair.Value),
+                });
+            }
+
+            return snapshot;
+        }
+
+        /// <summary>恢复到空候选实例，保留文件中的原始 id 与本地计数器。</summary>
+        private void RestoreSnapshot(DataCenterSave snapshot)
+        {
+            if (datas.Count != 0)
+                throw new InvalidDataException($"数据中心 Code {CenterCode} 不是空实例，不能执行覆盖恢复");
+
+            var items = ValidateSnapshotItems(snapshot);
+            var restored = new List<KeyValuePair<long, T>>(items.Count);
+
+            foreach (var item in items)
+            {
+                var data = DeserializeData(item.data);
+                ValidateSaveData(data);
+                data.SetId(item.id);
+                restored.Add(new KeyValuePair<long, T>(item.id, data));
+            }
+
+            foreach (var pair in restored)
+                datas.Add(pair.Key, pair.Value);
+
+            id = snapshot.lastLocalId;
+            RebuildAfterRestore();
+        }
+
+        /// <summary>按文件中的本地 id 顺序追加，并返回原 id → 新 id 映射。</summary>
+        private IReadOnlyDictionary<long, long> AppendSnapshot(DataCenterSave snapshot)
+        {
+            var items = ValidateSnapshotItems(snapshot);
+            var mapping = new Dictionary<long, long>(items.Count);
+
+            foreach (var item in items)
+            {
+                var data = DeserializeData(item.data);
+                ValidateAppendData(data);
+                data.SetId(-1);
+
+                long previousCounter = id;
+                long newId = AddData(data);
+                if (newId < 0 || id <= previousCounter || newId != Compose(id))
+                    throw new InvalidDataException(
+                        $"数据中心 Code {CenterCode} 追加了条目 {DataCenterId.Describe(item.id)}，" +
+                        "但没有分配新的尾部 id；追加导入不允许静默合并到已有条目");
+
+                mapping.Add(item.id, newId);
+            }
+
+            return mapping;
+        }
+
+        private List<DataItemSave> ValidateSnapshotItems(DataCenterSave snapshot)
+        {
+            if (snapshot == null)
+                throw new InvalidDataException($"数据中心 Code {CenterCode} 的快照为空");
+            if (snapshot.centerCode != CenterCode)
+                throw new InvalidDataException(
+                    $"快照 Code {snapshot.centerCode} 与目标中心 Code {CenterCode} 不一致");
+            if (snapshot.lastLocalId < 0 || snapshot.lastLocalId > DataCenterId.MaxLocalId)
+                throw new InvalidDataException(
+                    $"数据中心 Code {CenterCode} 的 lastLocalId {snapshot.lastLocalId} 非法");
+            if (snapshot.items == null)
+                throw new InvalidDataException($"数据中心 Code {CenterCode} 缺少 items");
+
+            var uniqueIds = new HashSet<long>();
+            long maxLocalId = 0;
+            foreach (var item in snapshot.items)
+            {
+                if (item == null || item.data == null)
+                    throw new InvalidDataException($"数据中心 Code {CenterCode} 包含空条目");
+                if (!DataCenterId.BelongsTo(item.id, CenterCode)
+                    || !DataCenterId.IsValidLocalId(DataCenterId.Local(item.id)))
+                {
+                    throw new InvalidDataException(
+                        $"条目 id {item.id} 不属于数据中心 Code {CenterCode}，或本地 id 非法");
+                }
+                if (!uniqueIds.Add(item.id))
+                    throw new InvalidDataException(
+                        $"数据中心 Code {CenterCode} 重复包含条目 {DataCenterId.Describe(item.id)}");
+
+                maxLocalId = Math.Max(maxLocalId, DataCenterId.Local(item.id));
+            }
+
+            if (maxLocalId > snapshot.lastLocalId)
+                throw new InvalidDataException(
+                    $"数据中心 Code {CenterCode} 的 lastLocalId {snapshot.lastLocalId} " +
+                    $"小于条目最大本地 id {maxLocalId}");
+
+            var ordered = new List<DataItemSave>(snapshot.items);
+            ordered.Sort((a, b) => a.id.CompareTo(b.id));
+            return ordered;
+        }
+
+        /// <summary>默认按 T 反序列化；特殊数据可重写以补充非默认序列化字段。</summary>
+        protected virtual JObject SerializeData(T data)
+        {
+            var json = JObject.FromObject(data, CreateSaveSerializer());
+            json.Remove("Id");
+            return json;
+        }
+
+        /// <summary>默认按 T 反序列化；Id 由外层条目恢复，不信任 data 内的值。</summary>
+        protected virtual T DeserializeData(JObject json)
+        {
+            var data = json.ToObject<T>(CreateSaveSerializer());
+            if (data == null)
+                throw new InvalidDataException($"数据中心 Code {CenterCode} 的条目反序列化为空");
+            return data;
+        }
+
+        /// <summary>覆盖或追加前的通用数据校验，子类可按自身不变量扩展。</summary>
+        protected virtual void ValidateSaveData(T data)
+        {
+        }
+
+        /// <summary>追加前校验；子类可拒绝会被自身 AddData 合并的业务键。</summary>
+        protected virtual void ValidateAppendData(T data) => ValidateSaveData(data);
+
+        /// <summary>覆盖恢复后重建子类额外索引。</summary>
+        protected virtual void RebuildAfterRestore()
+        {
+        }
+
+        private static JsonSerializer CreateSaveSerializer()
+            => JsonSerializer.Create(new JsonSerializerSettings
+            {
+                TypeNameHandling = TypeNameHandling.None,
+            });
 
         /// <summary>
         /// 克隆一份数据并重新入册。原数据不存在或 Clone 失败时返回 -1。
