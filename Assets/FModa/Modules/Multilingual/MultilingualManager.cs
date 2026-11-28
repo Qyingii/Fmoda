@@ -66,7 +66,10 @@ namespace FModa.Multilingual
         // 每次用属性取，绝不缓存：DataManager.PreWarm() 会整体替换实例。
         private MultilingualDataCenter Data => DataManager.Multilingual;
 
-        public void Init() => EnsureInitialized();
+        public MultilingualManager()
+        {
+            EnsureInitialized();
+        }
 
         public void OnRemove()
         {

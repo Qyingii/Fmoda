@@ -1,5 +1,4 @@
 ﻿using Conquer.Unit;
-using FModa.GameObjectManager;
 using FModa.InputSystem;
 using FModa.Multilingual;
 using TMPro;
@@ -58,7 +57,7 @@ public class UnitHpPanel : UIBase
 
         if (inputManager.KeyDown("EndFlow"))
         {
-            unitManager.EndFlow();
+            GF.GetBond<SwitchFlowBond>().FlowEnd();
         }
     }
 

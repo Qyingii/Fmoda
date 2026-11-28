@@ -31,12 +31,6 @@ namespace FModa.Multilingual
         /// </summary>
         bool AutoDetectSystemLanguage { get; set; }
 
-        /// <summary>
-        /// 由 Flow 在进入时调用：加载内置/自定义语言包并选择当前语种。
-        /// 重复调用幂等；即使不调用，首次访问语言 API 也会懒初始化。
-        /// </summary>
-        void Init();
-
         /// <summary>获取当前可用语种，供设置界面生成列表。</summary>
         IReadOnlyList<LanguageInfo> GetAvailableLanguages();
 

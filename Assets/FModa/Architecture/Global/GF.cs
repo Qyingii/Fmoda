@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using FModa.Bond;
 using FModa.Data;
 using FModa.GameObjectManager;
 using FModa.Pool;
@@ -529,6 +530,58 @@ public class GF : MonoBehaviour
         SafeCall(_sortedModules, m => m.OnApplicationQuit());
     }
 
+    #endregion
+    #region 粘合剂管理
+    /// <summary>
+    /// 所有已经注册的粘合剂
+    /// </summary>
+    private static readonly Dictionary<Type, IBond> _bondMap = new Dictionary<Type, IBond>();
+
+    /// <summary>
+    /// 创建粘合剂
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public static T CreateBond<T>() where T : class,IBond, new()
+    {
+        if (_bondMap.ContainsKey(typeof(T)))
+        {
+            Debug.LogWarning($"[GF] 粘合剂 {typeof(T).Name} 已注册，跳过");
+            return _bondMap[typeof(T)] as T;
+        }
+        var bond = new T();
+        _bondMap[typeof(T)] = bond;
+        return bond;
+    }
+
+    /// <summary>
+    /// 创建粘合剂
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public static IBond CreateBond(Type type)
+    {
+        if(_bondMap.ContainsKey(type))
+        {
+            Debug.LogWarning($"[GF] 粘合剂 {type.Name} 已注册，跳过");
+            return _bondMap[type];
+        }
+        var bond = Activator.CreateInstance(type) as IBond;
+        _bondMap[type] = bond;
+        return bond;
+    }
+
+    /// <summary>
+    /// 得到粘合剂
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public static T GetBond<T>() where T : class,IBond
+    {
+        if (_bondMap.TryGetValue(typeof(T), out var bond))
+            return bond as T;
+        return (T)CreateBond(typeof(T));
+    }
     #endregion
 
     #region Debug

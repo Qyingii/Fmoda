@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using FModa.Data;
 using UnityEngine;
@@ -15,13 +14,17 @@ namespace Conquer.Unit
 
         public int Priority => 5;
 
-        public Action OnFlowEnd{get;set;} //流程结束时触发，ExampleFlow 订阅此事件后切换流程
-
         public Action OnHpChanged{get;set;}//血量变化时触发，UnitHpPanel 订阅此事件后刷新 UI
         private UnitDataCenter unitDataCenter => DataManager.Unit;//数据中心，用于存储战斗数据
 
-        //防止 OnRemove（IModule 钩子）与 OnDestroy（Unity 消息）各清理一次
-        private bool _destroyed;
+        #region 生命周期
+        public void OnRemove()
+        {
+            //转流程时清除数据，让用户知道删除数据时不会有反向通知
+            unitDataCenter.Clear();
+            OnHpChanged?.Invoke(); // 数据已清空，通知 UI 重新取一次（此时为空）
+        }
+        #endregion
 
         /// <summary>
         /// 注册数据
@@ -54,36 +57,6 @@ namespace Conquer.Unit
         {
             return unitDataCenter.ToLocalId(id);
         }
-
-#region 生命周期函数
-        /// <summary>IModule 的销毁钩子，GF 调用这个。</summary>
-        public void OnRemove() => Cleanup();
-
-        /// <summary>Unity 销毁消息，销毁 GameObject 时触发。</summary>
-        private void OnDestroy() => Cleanup();
-
-        private void Cleanup()
-        {
-            if (_destroyed) return;
-            _destroyed = true;
-
-            OnFlowEnd = null;
-            OnHpChanged = null;
-        }
-
-        #endregion
-
-        #region 流程
-
-        //结束流程
-        public void EndFlow()
-        {
-            //转流程时清除数据，让用户知道删除数据时不会有反向通知
-            unitDataCenter.Clear();
-            OnHpChanged?.Invoke(); // 数据已清空，通知 UI 重新取一次（此时为空）
-            OnFlowEnd?.Invoke();
-        }
-#endregion
 #region 单位操作
 
         //单位移动

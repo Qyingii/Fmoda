@@ -8,7 +8,7 @@ public class Units : MonoBehaviour
     /// 单位 id，由生成方（Flow）在注册数据后通过 BindUnit 注入。
     /// -1 表示尚未注册；不参与 Inspector 序列化，避免预制体/场景复制时被写坏。
     /// </summary>
-    [SerializeField, HideInInspector] private long unitId = -1;
+    private long unitId = -1;
 
     //单位模块
     private IUnitManager unitManager;
@@ -37,12 +37,7 @@ public class Units : MonoBehaviour
         // 由 Flow 注入的单位（unitId > 0）不会走到这里，因此不会重复注册。
         if (unitId == -1 && unitManager != null)
         {
-            BindUnit(unitManager.Register(new UnitData
-            {
-                maxHp = 100,
-                hp = 100,
-                moveSpeed = 3,
-            }));
+            BindUnit(GF.GetBond<UnitBond>().CreateUnitData());
         }
     }
 
